@@ -53,3 +53,6 @@ playwright/.cache
 # IDEs
 .idea
 .vscode
+
+# Claude Code harness — personal/local overrides only
+.claude/settings.local.json

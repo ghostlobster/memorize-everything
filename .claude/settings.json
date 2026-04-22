@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "DEFAULT_MODEL_PROVIDER": "google"
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(pnpm install*)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm test)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm build)",
+      "Bash(pnpm e2e)",
+      "Bash(pnpm e2e:*)",
+      "Bash(pnpm smoke:deck*)",
+      "Bash(pnpm db:generate)",
+      "Bash(pnpm db:studio)",
+      "Bash(pnpm exec *)",
+      "Bash(pnpm dlx *)",
+      "Bash(pnpm --version)",
+      "Bash(node --version)",
+      "Bash(ls*)",
+      "Bash(pwd)",
+      "Bash(cat .env.example)",
+      "Bash(which *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git fetch*)",
+      "Bash(git rev-parse*)",
+      "Bash(git config --get*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh issue view*)",
+      "Bash(gh issue list*)",
+      "mcp__github__get_me",
+      "mcp__github__get_file_contents",
+      "mcp__github__get_commit",
+      "mcp__github__get_tag",
+      "mcp__github__get_label",
+      "mcp__github__get_latest_release",
+      "mcp__github__list_branches",
+      "mcp__github__list_commits",
+      "mcp__github__list_issues",
+      "mcp__github__list_issue_types",
+      "mcp__github__list_pull_requests",
+      "mcp__github__list_releases",
+      "mcp__github__list_tags",
+      "mcp__github__issue_read",
+      "mcp__github__pull_request_read",
+      "mcp__github__search_code",
+      "mcp__github__search_issues",
+      "mcp__github__search_pull_requests",
+      "mcp__github__search_repositories",
+      "mcp__github__search_users"
+    ],
+    "ask": [
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git checkout*)",
+      "Bash(git merge*)",
+      "Bash(git rebase*)",
+      "Bash(git stash*)",
+      "Bash(pnpm add*)",
+      "Bash(pnpm remove*)",
+      "Bash(pnpm update*)",
+      "Bash(pnpm db:migrate)",
+      "Bash(pnpm db:push)",
+      "Bash(vercel *)",
+      "mcp__github__issue_write",
+      "mcp__github__pull_request_review_write",
+      "mcp__github__create_pull_request",
+      "mcp__github__create_or_update_file",
+      "mcp__github__merge_pull_request",
+      "mcp__github__push_files",
+      "mcp__github__delete_file",
+      "mcp__github__create_branch"
+    ],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)",
+      "Bash(rm -rf $HOME*)",
+      "Bash(git reset --hard*)",
+      "Bash(sudo*)",
+      "Bash(curl * | bash)",
+      "Bash(curl * | sh)",
+      "Bash(wget * | bash)",
+      "Bash(npm install*)",
+      "Bash(yarn*)",
+      "mcp__github__run_secret_scanning"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/on-session-start.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/on-user-prompt.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/on-pre-bash-guard.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/on-tool-edit-schema.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/on-tool-edit-prompts.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/on-stop-verify.sh",
+            "timeout": 120,
+            "statusMessage": "Harness gate: typecheck + test:coverage"
+          }
+        ]
+      }
+    ]
+  }
+}
