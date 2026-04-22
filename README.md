@@ -49,13 +49,33 @@ Open http://localhost:3000.
 ```bash
 pnpm dev            # next dev
 pnpm build          # next build
+pnpm lint           # next lint
 pnpm typecheck      # tsc --noEmit
-pnpm test           # vitest run (SM-2 scheduler tests)
+pnpm test           # vitest run
+pnpm test:coverage  # vitest run --coverage (HTML report in ./coverage)
+pnpm e2e            # playwright test (boots the app; needs `pnpm e2e:install` once)
 pnpm smoke:deck "Bayesian inference"   # generate a deck end-to-end, no UI
 pnpm db:generate    # drizzle-kit generate
 pnpm db:migrate     # drizzle-kit migrate
 pnpm db:studio      # drizzle-kit studio
 ```
+
+## CI / CD
+
+- **CI** (`.github/workflows/ci.yml`): on every PR and push to `main`,
+  runs lint → typecheck → vitest (with coverage gate) → `next build`,
+  plus a `pr-hygiene` job that enforces Conventional Commit titles and
+  requires every PR to reference an issue (`Closes #N`).
+- **CD**: Vercel's GitHub integration handles preview deploys for every
+  PR and production deploys on every merge to `main`. An optional
+  workflow at `.github/workflows/production-deploy.yml` can gate
+  production on CI success — disabled by default (flip the
+  `VERCEL_DEPLOY_VIA_ACTIONS` repo variable to `true` to enable).
+- **Dependabot** weekly, grouped by framework family (Next, React, AI
+  SDK, Drizzle, Auth.js, testing, linting).
+
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the ticket-first workflow,
+commit conventions, required branch protection rules, and review rules.
 
 ## Architecture at a glance
 

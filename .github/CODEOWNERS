@@ -1,0 +1,24 @@
+# Code ownership. Review is required from a listed owner for changes to the
+# matching paths (when the "Require review from Code Owners" branch
+# protection rule is enabled).
+#
+# Update GH handles below before enabling the rule in GitHub Settings.
+
+# Default: the repo owner reviews everything.
+*                                           @ghostlobster
+
+# Database schema & migrations — a breaking change here cascades everywhere.
+/src/lib/db/                                @ghostlobster
+/drizzle/                                   @ghostlobster
+/drizzle.config.ts                          @ghostlobster
+
+# Auth surface — security-sensitive.
+/src/lib/auth/                              @ghostlobster
+/middleware.ts                              @ghostlobster
+
+# AI generation contracts (prompts + Zod schemas shape DB rows).
+/src/lib/ai/prompts.ts                      @ghostlobster
+/src/lib/ai/schemas.ts                      @ghostlobster
+
+# CI/CD & repo governance.
+/.github/                                   @ghostlobster
