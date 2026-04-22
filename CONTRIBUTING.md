@@ -109,6 +109,7 @@ The following must pass before merge:
 | Check | Required |
 | --- | --- |
 | `CI / Lint · Typecheck · Test · Build` | ✅ |
+| `CI / Secret scan (gitleaks)` | ✅ |
 | `CI / PR hygiene (ticket + title)` | ✅ |
 
 ### Review
@@ -145,6 +146,7 @@ sync with the CONTRIBUTING workflow above.
   - [x] Require branches to be up to date before merging
   - Required status checks:
     - `CI / Lint · Typecheck · Test · Build`
+    - `CI / Secret scan (gitleaks)`
     - `CI / PR hygiene (ticket + title)`
 - [x] **Require conversation resolution before merging**
 - [x] **Require signed commits** *(optional but recommended)*
