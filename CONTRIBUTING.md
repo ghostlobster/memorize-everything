@@ -102,6 +102,36 @@ All four must pass. Coverage thresholds are enforced in `vitest.config.ts`.
 - Self-review your own diff first; add inline comments where a reviewer
   might reasonably ask "why?".
 
+### Dependabot triage policy
+
+Dependabot opens grouped PRs weekly per `.github/dependabot.yml`.
+Apply this policy when triaging:
+
+- **Auto-mergeable (merge once CI is green):**
+  - All `ci:`-prefixed action bumps (entries from the
+    `github-actions` ecosystem).
+  - Patch-level npm bumps (`X.Y.Z` where only `Z` changed).
+  - Minor npm bumps where the package is post-1.0 and CI is green.
+- **Requires reviewer attention before merge:**
+  - Minor bumps on a `0.X.Y` package (every minor is potentially
+    breaking).
+  - Any bump touching `next`, `next-auth`, `drizzle-orm`, or
+    `drizzle-kit` (these underpin auth + DB and have caused breaks
+    historically).
+  - Any bump where one or more required CI checks fails.
+- **Defer to a tracking ticket (close the PR):**
+  - **Every major version bump.** Close the PR, add a checklist item
+    on the upgrade tracking ticket (see #20) referencing the closed
+    PR number, and address it deliberately with code changes + tests
+    in a dedicated ticket.
+  - Any bump that would force an API change in `src/lib/**` (imports,
+    type signatures, configuration shape).
+
+The intent: Dependabot stays useful for low-risk hygiene without
+silently merging changes that need code adaptation. The harness
+already enforces ticket-first workflow, so deferring a major to a
+ticket costs almost nothing.
+
 ### Required CI checks
 
 The following must pass before merge:
