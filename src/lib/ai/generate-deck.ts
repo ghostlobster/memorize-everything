@@ -1,6 +1,7 @@
 import { generateText, generateObject } from "ai";
 import type { ProviderId } from "./models";
 import { resolveModel } from "./models";
+import { normalizeMermaid } from "./mermaid";
 import {
   KNOWLEDGE_ARCHITECT_SYSTEM,
   PHASE1_INSTRUCTIONS,
@@ -64,9 +65,3 @@ export async function generateDeck(
   };
 }
 
-function normalizeMermaid(src: string): string {
-  let s = src.trim();
-  // Strip accidental markdown fences.
-  s = s.replace(/^```(?:mermaid)?\s*/i, "").replace(/```\s*$/i, "");
-  return s.trim();
-}
