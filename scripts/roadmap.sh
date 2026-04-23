@@ -157,9 +157,11 @@ BANNER
     echo ""
     jq -r '
       def esc_md: gsub("\\|"; "\\|") | gsub("`"; "\\`");
-      def first_body_line:
+      # First paragraph (runs between blank lines) so we get full
+      # sentences instead of whatever fits on one hard-wrapped line.
+      def first_paragraph:
         (.body // "")
-        | split("\n")
+        | split("\n\n")
         | map(select(length > 0 and (test("^\\s*$") | not)))
         | (first // "");
       def truncate(n):
@@ -175,7 +177,7 @@ BANNER
                 else "" end)
             + " — \(.title | esc_md)"
             + (
-                first_body_line
+                first_paragraph
                 | esc_md
                 | gsub("\\s+"; " ")
                 | sub("^\\s+"; "")
