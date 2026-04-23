@@ -1,0 +1,66 @@
+name: Roadmap refresh
+
+# Daily regeneration of ROADMAP.md from live GitHub issues. If the
+# regenerated content differs from main, opens (or updates) a single
+# PR on branch `roadmap/auto-refresh` titled `chore: refresh
+# ROADMAP.md`.
+#
+# Note: PRs opened with the default GITHUB_TOKEN do NOT trigger
+# other workflow runs. That's by design here — the refresh PR is
+# doc-only and doesn't need the full CI gate. The roadmap-freshness
+# workflow will still run on the squash-merge to main.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # daily 06:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: roadmap-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    name: Refresh ROADMAP.md
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate ROADMAP.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/roadmap.sh
+
+      # TODO(#21): pin to a full commit SHA once the broader action-
+      # pinning ticket lands. The whole repo currently uses floating
+      # major tags; isolated SHA-pinning here would be inconsistent.
+      - name: Open or update refresh PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: roadmap/auto-refresh
+          delete-branch: true
+          signoff: true
+          commit-message: |
+            chore: refresh ROADMAP.md
+
+            Refs #21
+          title: 'chore: refresh ROADMAP.md'
+          body: |
+            Auto-opened by `.github/workflows/roadmap-refresh.yml`.
+
+            Regenerates `ROADMAP.md` from the live open issues on
+            `ghostlobster/memorize-everything`. No manual action
+            required; review the diff and squash-merge.
+
+            Refs #21
+          labels: |
+            chore
+            dx

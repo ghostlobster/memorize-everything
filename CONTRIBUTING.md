@@ -101,6 +101,12 @@ All four must pass. Coverage thresholds are enforced in `vitest.config.ts`.
 - Mark the PR as **Draft** until you've verified it locally and CI is green.
 - Self-review your own diff first; add inline comments where a reviewer
   might reasonably ask "why?".
+- **Do not hand-edit `ROADMAP.md`.** It is auto-generated from the open
+  GitHub issues by `scripts/roadmap.sh` and refreshed daily by the
+  `Roadmap refresh` workflow. The `Roadmap freshness` CI job will
+  fail any PR that diverges from the regenerated output. Edit the
+  underlying issues instead, or run `./scripts/roadmap.sh` locally
+  to refresh before committing.
 
 ### Dependabot triage policy
 
@@ -141,6 +147,7 @@ The following must pass before merge:
 | `CI / Lint · Typecheck · Test · Build` | ✅ |
 | `CI / Secret scan (gitleaks)` | ✅ |
 | `CI / PR hygiene (ticket + title)` | ✅ |
+| `Roadmap freshness / Roadmap freshness` | ✅ (only runs when the diff touches `ROADMAP.md` or `scripts/roadmap.sh`) |
 
 ### Review
 
@@ -178,6 +185,7 @@ sync with the CONTRIBUTING workflow above.
     - `CI / Lint · Typecheck · Test · Build`
     - `CI / Secret scan (gitleaks)`
     - `CI / PR hygiene (ticket + title)`
+    - `Roadmap freshness / Roadmap freshness`
 - [x] **Require conversation resolution before merging**
 - [x] **Require signed commits** *(optional but recommended)*
 - [x] **Require linear history** (blocks merge commits — pairs with squash-merge)

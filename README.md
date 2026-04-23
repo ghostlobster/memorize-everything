@@ -5,6 +5,9 @@ deep-dive, a Mermaid knowledge graph, spaced-repetition flashcards,
 mnemonics, and an interleaving suggestion — then review with a
 self-correction coach that primes you before revealing answers.
 
+> **What's planned next?** See [`ROADMAP.md`](./ROADMAP.md) — auto-generated
+> from the open issues; refreshed daily.
+
 ## Stack
 
 - **Next.js 15** App Router, React 19, TypeScript strict
