@@ -1,0 +1,44 @@
+name: Roadmap freshness
+
+# Verifies the committed ROADMAP.md matches what scripts/roadmap.sh
+# would generate from live GitHub issues.
+#
+# Triggers (scoped to avoid a foot-gun documented in #21):
+#   - pull_request whose diff touches the roadmap or its generator
+#     (so unrelated PRs aren't blocked by drift caused elsewhere)
+#   - every push to main as a post-merge canary
+#
+# The complementary roadmap-refresh.yml workflow runs daily and
+# opens a refresh PR when live issues drift from main, so a red
+# canary self-heals within 24h.
+
+on:
+  pull_request:
+    paths:
+      - 'ROADMAP.md'
+      - 'scripts/roadmap.sh'
+      - '.github/workflows/roadmap.yml'
+  push:
+    branches: [main]
+
+concurrency:
+  group: roadmap-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    name: Roadmap freshness
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run roadmap.sh --check
+        env:
+          # Lifts anonymous rate limit; the script falls back to
+          # unauthenticated calls when this is empty.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/roadmap.sh --check
