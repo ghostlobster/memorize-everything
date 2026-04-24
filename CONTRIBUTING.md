@@ -148,6 +148,7 @@ The following must pass before merge:
 | `CI / Secret scan (gitleaks)` | ✅ |
 | `CI / PR hygiene (ticket + title)` | ✅ |
 | `Roadmap freshness / Roadmap freshness` | ✅ (only runs when the diff touches `ROADMAP.md` or `scripts/roadmap.sh`) |
+| `E2E / Golden path` | ⏳ informational for now; will be promoted to required once it runs green for 20 consecutive merges (see #19) |
 
 ### Review
 

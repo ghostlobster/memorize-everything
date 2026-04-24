@@ -1,0 +1,71 @@
+name: E2E
+
+# Authenticated golden-path Playwright test against a pglite-backed
+# Next.js dev server. Seed and driver are in-process, so no external
+# database service is needed.
+#
+# Not yet a required check — #19 acceptance calls for 20 consecutive
+# green runs before adding to branch protection. A follow-up ticket
+# will flip the required status.
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'ROADMAP.md'
+      - '.github/workflows/roadmap*.yml'
+  push:
+    branches: [main]
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Golden path
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Switch the DB client factory to the pglite driver. No
+      # Neon / real auth / AI keys needed for the seeded flow.
+      DB_DRIVER: pglite
+      PGLITE_DATA_DIR: .e2e-db
+      DATABASE_URL: "postgresql://stub:stub@localhost:5432/stub"
+      DATABASE_URL_UNPOOLED: "postgresql://stub:stub@localhost:5432/stub"
+      AUTH_SECRET: "ci-placeholder-secret"
+      AUTH_GITHUB_ID: "stub"
+      AUTH_GITHUB_SECRET: "stub"
+      DEFAULT_MODEL_PROVIDER: "google"
+      GOOGLE_GENERATIVE_AI_API_KEY: "stub"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        # Version picked up from packageManager in package.json.
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E
+        run: pnpm e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

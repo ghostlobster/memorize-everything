@@ -19,6 +19,8 @@ export default defineConfig({
         // Covered by E2E / manual testing; mocking them adds brittle
         // fixtures without catching real regressions.
         "src/lib/db/client.ts",
+        "src/lib/db/driver-neon.ts",
+        "src/lib/db/driver-pglite.ts",
         "src/lib/auth/config.ts",
         "src/lib/auth/handlers.ts",
         "src/lib/auth/require-user.ts",

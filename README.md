@@ -56,12 +56,38 @@ pnpm lint           # next lint
 pnpm typecheck      # tsc --noEmit
 pnpm test           # vitest run
 pnpm test:coverage  # vitest run --coverage (HTML report in ./coverage)
-pnpm e2e            # playwright test (boots the app; needs `pnpm e2e:install` once)
+pnpm e2e:install    # one-time: install Playwright chromium
+pnpm seed:e2e       # seed the pglite data dir used by E2E
+pnpm e2e            # playwright test (golden path against pglite)
 pnpm smoke:deck "Bayesian inference"   # generate a deck end-to-end, no UI
 pnpm db:generate    # drizzle-kit generate
 pnpm db:migrate     # drizzle-kit migrate
 pnpm db:studio      # drizzle-kit studio
 ```
+
+### E2E (Playwright)
+
+E2E runs against a pglite-backed (in-process Postgres) instance
+seeded by `scripts/seed-e2e.ts`. No real Neon / Auth.js / AI keys
+needed; the seeded Auth.js session cookie grants access to
+protected routes.
+
+First run:
+
+```bash
+pnpm e2e:install          # browsers — ~100MB download
+pnpm e2e                  # runs global-setup → seed → dev server → spec
+```
+
+Swap the DB driver anywhere via `DB_DRIVER`:
+
+| `DB_DRIVER` | Driver | Used for |
+| --- | --- | --- |
+| unset / `neon` | `@neondatabase/serverless` + `drizzle-orm/neon-http` | prod, local dev |
+| `pglite` | `@electric-sql/pglite` + `drizzle-orm/pglite` | E2E only |
+
+The `pglite` branch is loaded via a computed `require` string so
+it never enters the production server bundle.
 
 ## CI / CD
 
