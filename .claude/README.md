@@ -63,6 +63,18 @@ Common uses:
 **Disabling a hook temporarily:** set `HARNESS_SKIP_GATE=1` in your
 shell — the Stop hook honors it.
 
+**Testing hooks after changes:** the PreToolUse Bash guard has a
+table test at `.claude/hooks/test-on-pre-bash-guard.sh`. Run it
+with:
+
+```bash
+bash .claude/hooks/test-on-pre-bash-guard.sh
+```
+
+All cases must pass before committing changes to
+`on-pre-bash-guard.sh`. Add a new case for any new regression you
+catch (write the failing case first, then fix).
+
 **Troubleshooting hooks:**
 
 ```bash
