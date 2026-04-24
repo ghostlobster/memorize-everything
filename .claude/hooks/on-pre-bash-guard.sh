@@ -21,6 +21,18 @@ set -euo pipefail
 cmd="$(jq -r '.tool_input.command // empty')"
 if [[ -z "$cmd" ]]; then exit 0; fi
 
+# Normalize the command before pattern-matching so dangerous words like
+# `main` / `--force` inside shell comments or quoted strings do not
+# false-positive the guards below. This is a best-effort tokenizer, not
+# a full shell parser — it covers the common cases (comment lines,
+# double/single-quoted literals) that were biting real sessions. See
+# issue #23.
+cmd_effective="$(printf '%s\n' "$cmd" \
+  | sed -E '/^[[:space:]]*#/d' \
+  | sed -E 's/"[^"]*"/ /g' \
+  | sed -E "s/'[^']*'/ /g" \
+  )"
+
 deny() {
   jq -cn --arg r "$1" '{
     hookSpecificOutput: {
@@ -35,33 +47,33 @@ deny() {
 # --- Hard denies -----------------------------------------------------------
 
 # Force pushes without --force-with-lease.
-if [[ "$cmd" =~ (^|[[:space:]])git[[:space:]]+push([[:space:]]|$) ]]; then
-  if [[ "$cmd" =~ --force-with-lease ]]; then
+if [[ "$cmd_effective" =~ (^|[[:space:]])git[[:space:]]+push([[:space:]]|$) ]]; then
+  if [[ "$cmd_effective" =~ --force-with-lease ]]; then
     :
-  elif [[ "$cmd" =~ (^|[[:space:]])(--force|-f)([[:space:]]|$) ]]; then
+  elif [[ "$cmd_effective" =~ (^|[[:space:]])(--force|-f)([[:space:]]|$) ]]; then
     deny "Blocked: \`git push --force\` / \`-f\` is not allowed (can overwrite shared history). Use \`--force-with-lease\` and a justifying comment in the PR."
   fi
   # Pushes targeting main/master (positional ref).
-  if [[ "$cmd" =~ [[:space:]](main|master|HEAD:main|HEAD:master|:main|:master)([[:space:]]|$) ]]; then
+  if [[ "$cmd_effective" =~ [[:space:]](main|master|HEAD:main|HEAD:master|:main|:master)([[:space:]]|$) ]]; then
     deny "Blocked: direct pushes to main/master are not allowed. Open a PR from the feature branch (see CONTRIBUTING.md)."
   fi
 fi
 
 # git reset --hard — destroys local work without confirmation.
-if [[ "$cmd" =~ (^|[[:space:]])git[[:space:]]+reset[[:space:]]+--hard([[:space:]]|$) ]]; then
+if [[ "$cmd_effective" =~ (^|[[:space:]])git[[:space:]]+reset[[:space:]]+--hard([[:space:]]|$) ]]; then
   deny "Blocked: \`git reset --hard\` discards uncommitted work irreversibly. If this is intentional, run it manually in a shell."
 fi
 
 # rm -rf on dangerous paths.
-if [[ "$cmd" =~ (^|[[:space:]])rm[[:space:]]+(-[a-zA-Z]*r[a-zA-Z]*f|-rf|-fr)[[:space:]]+ ]]; then
-  if [[ "$cmd" =~ [[:space:]](/|\$HOME|~|~/|\.|\./|/home/|/Users/|/root)([[:space:]]|/|$) ]]; then
+if [[ "$cmd_effective" =~ (^|[[:space:]])rm[[:space:]]+(-[a-zA-Z]*r[a-zA-Z]*f|-rf|-fr)[[:space:]]+ ]]; then
+  if [[ "$cmd_effective" =~ [[:space:]](/|\$HOME|~|~/|\.|\./|/home/|/Users/|/root)([[:space:]]|/|$) ]]; then
     deny "Blocked: \`rm -rf\` targeting a dangerous path (/, \$HOME, ~, .). Use explicit relative paths or run the command manually."
   fi
 fi
 
 # --- Secret scanning on git add / git commit -------------------------------
 
-if [[ "$cmd" =~ (^|[[:space:]])git[[:space:]]+(add|commit)([[:space:]]|$) ]]; then
+if [[ "$cmd_effective" =~ (^|[[:space:]])git[[:space:]]+(add|commit)([[:space:]]|$) ]]; then
   if command -v gitleaks >/dev/null 2>&1; then
     if ! gitleaks protect --staged --no-banner --redact --exit-code 1 >/tmp/gitleaks-harness.log 2>&1; then
       leaked=$(tail -20 /tmp/gitleaks-harness.log | sed 's/"/\\"/g')
