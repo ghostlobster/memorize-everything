@@ -6,15 +6,48 @@ import {
   E2E_DECK_TOPIC,
 } from "./support/fixtures";
 
+/**
+ * Diagnostic helper used while #19 stabilises. Logs key page state
+ * to stdout (which the GitHub Actions reporter surfaces in the run
+ * log) so failures don't have to be debugged blind.
+ */
+async function logPageState(page: import("@playwright/test").Page, label: string) {
+  // eslint-disable-next-line no-console
+  console.log(
+    `\n[diag:${label}] url=${page.url()}\n` +
+      `[diag:${label}] title=${await page.title()}\n` +
+      `[diag:${label}] cookies=${
+        (await page.context().cookies())
+          .map((c) => `${c.name}=${c.value.slice(0, 12)}…`)
+          .join("; ") || "<none>"
+      }\n` +
+      `[diag:${label}] body[0..400]=${
+        ((await page.locator("body").textContent()) ?? "")
+          .replace(/\s+/g, " ")
+          .slice(0, 400)
+      }\n`,
+  );
+}
+
 test.describe("authenticated golden path", () => {
   test("deck view → review → grade Right advances to next card", async ({ page }) => {
     // First visit sets the cookie's domain context, then plant the
     // seeded session cookie so middleware lets us past /decks/*.
     await page.goto("/");
     await signInAsE2EUser(page);
+    await logPageState(page, "after-cookie-plant");
 
     // --- Deck view ----------------------------------------------------
     await page.goto(`/decks/${E2E_DECK_ID}`);
+    await logPageState(page, "after-deck-goto");
+
+    // If middleware redirected us back to "/" the cookie did not
+    // authenticate; fail loudly with the actual landing URL rather
+    // than a generic "element not found" timeout 15s later.
+    await expect(page, "deck route should not redirect to /").toHaveURL(
+      new RegExp(`/decks/${E2E_DECK_ID}$`),
+    );
+
     await expect(
       page.getByRole("heading", { name: E2E_DECK_TOPIC }),
     ).toBeVisible();
@@ -25,10 +58,6 @@ test.describe("authenticated golden path", () => {
     await page.getByRole("link", { name: /start review/i }).click();
     await expect(page).toHaveURL(new RegExp(`/decks/${E2E_DECK_ID}/review$`));
 
-    // First card's front matches the seeded fixture (orderIdx 0).
-    // Due-ordering is ties broken by orderIdx ascending. Card front
-    // renders inside <CardTitle> which is a styled <div>, not a
-    // heading element — use getByText, not getByRole.
     const firstCard = E2E_CARDS[0]!;
     const secondCard = E2E_CARDS[1]!;
 
@@ -36,10 +65,6 @@ test.describe("authenticated golden path", () => {
     await expect(page.getByText("5 due")).toBeVisible();
 
     // --- Flip + grade Right (keyboard path) ---------------------------
-    // Space flips the card; `3` is the Right shortcut per the review
-    // session keymap. On Right the client grades server-side and
-    // advances immediately; the card count drops by one and the next
-    // due card appears.
     await page.keyboard.press(" ");
     await expect(page.getByText(firstCard.back)).toBeVisible();
     await page.keyboard.press("3");
