@@ -8,20 +8,22 @@ import * as schema from "./schema";
  *   - unset or "neon" (default) → Neon HTTP driver (prod / local dev)
  *   - "pglite"                   → in-process pglite driver (E2E only)
  *
- * Production code path is unchanged. Only the E2E flow flips
- * `DB_DRIVER=pglite`. The pglite module is loaded via a computed
- * `require` string so bundlers don't try to pull it into the
- * production server build (pglite is a devDependency).
+ * The `require("./driver-pglite")` is intentionally a static
+ * literal so the Next bundler resolves it and includes the file in
+ * the server build. An earlier attempt used a computed-string
+ * `require` to keep pglite out of the prod bundle, but Next's
+ * "Collecting page data" phase still evaluates this module — and
+ * with the file missing from the bundle, the require fails at
+ * build time when DB_DRIVER=pglite. Static include is safer:
+ * pglite ships in the bundle but is never executed in prod
+ * (DB_DRIVER is unset there → Neon branch only).
  */
 
 function createDb() {
   const driver = process.env.DB_DRIVER ?? "neon";
   if (driver === "pglite") {
-    // Computed path defeats static analysis so @electric-sql/pglite
-    // is never bundled into the production server. See ./driver-pglite.ts.
-    const modId = `./driver-${driver}`;
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require(modId) as typeof import("./driver-pglite");
+    const mod = require("./driver-pglite") as typeof import("./driver-pglite");
     return mod.createPgliteDb();
   }
   return createNeonDb();
