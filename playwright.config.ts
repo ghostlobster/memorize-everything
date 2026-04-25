@@ -68,6 +68,10 @@ export default defineConfig({
             "postgresql://stub:stub@localhost:5432/stub",
           AUTH_SECRET:
             process.env.AUTH_SECRET ?? "e2e-placeholder-secret",
+          // Auth.js v5 requires the host to be trusted in
+          // production builds (`pnpm start`). Without this, every
+          // request to /api/auth/* fails with UntrustedHost.
+          AUTH_TRUST_HOST: "true",
           AUTH_GITHUB_ID: process.env.AUTH_GITHUB_ID ?? "stub",
           AUTH_GITHUB_SECRET:
             process.env.AUTH_GITHUB_SECRET ?? "stub",

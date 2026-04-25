@@ -1,5 +1,6 @@
-import { createNeonDb } from "./driver-neon";
 import * as schema from "./schema";
+import { createNeonDb } from "./driver-neon";
+import { createPgliteDb } from "./driver-pglite";
 
 /**
  * DB client factory.
@@ -8,23 +9,23 @@ import * as schema from "./schema";
  *   - unset or "neon" (default) → Neon HTTP driver (prod / local dev)
  *   - "pglite"                   → in-process pglite driver (E2E only)
  *
- * The `require("./driver-pglite")` is intentionally a static
- * literal so the Next bundler resolves it and includes the file in
- * the server build. An earlier attempt used a computed-string
- * `require` to keep pglite out of the prod bundle, but Next's
- * "Collecting page data" phase still evaluates this module — and
- * with the file missing from the bundle, the require fails at
- * build time when DB_DRIVER=pglite. Static include is safer:
- * pglite ships in the bundle but is never executed in prod
- * (DB_DRIVER is unset there → Neon branch only).
+ * Both drivers are imported statically so the bundler can resolve
+ * them cleanly. `@electric-sql/pglite` lives in `dependencies`
+ * (not devDependencies) so the production server can require it
+ * even though it is only ever executed when DB_DRIVER=pglite.
+ *
+ * An earlier attempt used a computed-string `require` to keep
+ * pglite out of the prod bundle. That broke the E2E build path
+ * because Next's "Collecting page data" phase evaluates this
+ * module: a dynamic require could not resolve the file, and a
+ * CJS require inside an ESM module fails at runtime in the dev
+ * server. Static imports + a regular dep resolve both cases.
  */
 
 function createDb() {
   const driver = process.env.DB_DRIVER ?? "neon";
   if (driver === "pglite") {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("./driver-pglite") as typeof import("./driver-pglite");
-    return mod.createPgliteDb();
+    return createPgliteDb();
   }
   return createNeonDb();
 }

@@ -36,6 +36,7 @@ jobs:
       DATABASE_URL: "postgresql://stub:stub@localhost:5432/stub"
       DATABASE_URL_UNPOOLED: "postgresql://stub:stub@localhost:5432/stub"
       AUTH_SECRET: "ci-placeholder-secret"
+      AUTH_TRUST_HOST: "true"
       AUTH_GITHUB_ID: "stub"
       AUTH_GITHUB_SECRET: "stub"
       DEFAULT_MODEL_PROVIDER: "google"
