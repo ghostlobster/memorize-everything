@@ -26,13 +26,13 @@ test.describe("authenticated golden path", () => {
     await expect(page).toHaveURL(new RegExp(`/decks/${E2E_DECK_ID}/review$`));
 
     // First card's front matches the seeded fixture (orderIdx 0).
-    // Due-ordering is ties broken by orderIdx ascending.
+    // Due-ordering is ties broken by orderIdx ascending. Card front
+    // renders inside <CardTitle> which is a styled <div>, not a
+    // heading element — use getByText, not getByRole.
     const firstCard = E2E_CARDS[0]!;
     const secondCard = E2E_CARDS[1]!;
 
-    await expect(
-      page.getByRole("heading", { name: firstCard.front }),
-    ).toBeVisible();
+    await expect(page.getByText(firstCard.front)).toBeVisible();
     await expect(page.getByText("5 due")).toBeVisible();
 
     // --- Flip + grade Right (keyboard path) ---------------------------
@@ -44,9 +44,7 @@ test.describe("authenticated golden path", () => {
     await expect(page.getByText(firstCard.back)).toBeVisible();
     await page.keyboard.press("3");
 
-    await expect(
-      page.getByRole("heading", { name: secondCard.front }),
-    ).toBeVisible();
+    await expect(page.getByText(secondCard.front)).toBeVisible();
     await expect(page.getByText("4 due")).toBeVisible();
   });
 });

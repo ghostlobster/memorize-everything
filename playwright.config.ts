@@ -47,13 +47,16 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        // `next dev` (not `next build && next start`) so the pglite
-        // driver loads without a production server build. Faster
-        // startup and avoids the build-time import of Neon env.
-        command: "pnpm dev",
+        // `next build && next start` is more deterministic than
+        // `next dev`: dev compiles routes on first request which
+        // makes the webServer wait flaky in CI, and any module-load
+        // error (DB driver, auth config) surfaces at build time
+        // rather than mid-test. Build runs against the same
+        // DB_DRIVER=pglite seed used at runtime.
+        command: "pnpm build && pnpm start",
         url: BASE_URL,
         reuseExistingServer: !process.env.CI,
-        timeout: 180_000,
+        timeout: 240_000,
         env: {
           DB_DRIVER: "pglite",
           PGLITE_DATA_DIR,
