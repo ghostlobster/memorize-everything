@@ -51,7 +51,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Bumped from 20 → 22 because Auth.js + pglite combine
+          # cleanly on Node 22 locally; on Node 20 CI the session
+          # cookie lookup returned null and middleware redirected
+          # to /. Repo's package.json engines: ">=20" so 22 is
+          # within range.
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
