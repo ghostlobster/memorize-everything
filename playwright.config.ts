@@ -34,9 +34,10 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
-  globalSetup: process.env.E2E_BASE_URL
-    ? undefined
-    : "./e2e/global-setup.ts",
+  // No globalSetup. Seeding happens in-process via
+  // src/instrumentation.ts so the Next.js server and the seeder
+  // share the same pglite instance — multi-process file sharing
+  // is unreliable. Idempotent (checks userCount > 0).
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
