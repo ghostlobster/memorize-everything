@@ -43,10 +43,25 @@ test.describe("authenticated golden path", () => {
     // can save the spec; if counts look right the failure is
     // downstream (cookie / Auth.js).
     const debug = await page.request.get("/api/e2e-debug");
+    const debugBody = await debug.text();
     // eslint-disable-next-line no-console
     console.log(
-      `[diag:db] status=${debug.status()} body=${await debug.text()}`,
+      `[diag:db] status=${debug.status()} body=${debugBody}`,
     );
+    // Embed the body in the assertion message so the GH Actions
+    // annotation surfaces it even when stdout doesn't reach us.
+    expect(
+      debug.status(),
+      `expected /api/e2e-debug 200; got ${debug.status()} body=${debugBody}`,
+    ).toBe(200);
+    expect(
+      debugBody,
+      `seed not reaching server; body=${debugBody}`,
+    ).toContain('"users":1');
+    expect(
+      debugBody,
+      `session row missing; body=${debugBody}`,
+    ).toContain('"sessions":1');
 
     // --- Deck view ----------------------------------------------------
     await page.goto(`/decks/${E2E_DECK_ID}`);
