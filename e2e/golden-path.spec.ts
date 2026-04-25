@@ -75,7 +75,10 @@ test.describe("authenticated golden path", () => {
     );
 
     await expect(
-      page.getByRole("heading", { name: E2E_DECK_TOPIC }),
+      // The deck page renders the topic in two h1s — once in the
+      // page header and once at the top of the markdown body.
+      // Both are correct; we only need to confirm at least one.
+      page.getByRole("heading", { name: E2E_DECK_TOPIC }).first(),
     ).toBeVisible();
     await expect(page.getByText("5 cards")).toBeVisible();
     await expect(page.getByText("5 due")).toBeVisible();
