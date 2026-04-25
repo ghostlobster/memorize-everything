@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
+    "seed:e2e": "tsx scripts/seed-e2e.ts",
     "smoke:deck": "tsx scripts/smoke-deck.ts"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "@ai-sdk/google": "^1.2.0",
     "@ai-sdk/openai": "^1.3.0",
     "@auth/drizzle-adapter": "^1.7.2",
+    "@electric-sql/pglite": "^0.4.4",
     "@neondatabase/serverless": "^0.10.3",
     "@radix-ui/react-slot": "^1.2.4",
     "ai": "^4.3.0",
