@@ -33,6 +33,7 @@ jobs:
       # Neon / real auth / AI keys needed for the seeded flow.
       DB_DRIVER: pglite
       PGLITE_DATA_DIR: .e2e-db
+      E2E_DEBUG: "1"
       DATABASE_URL: "postgresql://stub:stub@localhost:5432/stub"
       DATABASE_URL_UNPOOLED: "postgresql://stub:stub@localhost:5432/stub"
       AUTH_SECRET: "ci-placeholder-secret"

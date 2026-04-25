@@ -37,6 +37,17 @@ test.describe("authenticated golden path", () => {
     await signInAsE2EUser(page);
     await logPageState(page, "after-cookie-plant");
 
+    // Verify the server's DB has the seeded rows BEFORE we try to
+    // navigate to a protected route. If counts are zero the seed
+    // didn't reach the server's pglite instance and no auth fix
+    // can save the spec; if counts look right the failure is
+    // downstream (cookie / Auth.js).
+    const debug = await page.request.get("/api/e2e-debug");
+    // eslint-disable-next-line no-console
+    console.log(
+      `[diag:db] status=${debug.status()} body=${await debug.text()}`,
+    );
+
     // --- Deck view ----------------------------------------------------
     await page.goto(`/decks/${E2E_DECK_ID}`);
     await logPageState(page, "after-deck-goto");
