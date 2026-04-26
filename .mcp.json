@@ -1,0 +1,13 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/draft/2025-03-26/server.json",
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${DATABASE_URL_PREVIEW}"
+      ]
+    }
+  }
+}

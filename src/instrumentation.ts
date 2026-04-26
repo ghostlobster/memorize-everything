@@ -15,7 +15,6 @@ import "server-only";
  * scoped to the E2E workflow + playwright.config.ts).
  */
 export async function register() {
-  // eslint-disable-next-line no-console
   console.log(
     `[instrumentation] register() runtime=${process.env.NEXT_RUNTIME ?? "<unset>"} ` +
       `driver=${process.env.DB_DRIVER ?? "<unset>"} ` +
@@ -87,6 +86,5 @@ export async function register() {
     })),
   );
 
-  // eslint-disable-next-line no-console
   console.log("[instrumentation] e2e fixtures seeded in-process");
 }
