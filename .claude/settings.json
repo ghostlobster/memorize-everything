@@ -3,6 +3,7 @@
   "env": {
     "DEFAULT_MODEL_PROVIDER": "google"
   },
+  "enabledMcpjsonServers": ["postgres"],
   "permissions": {
     "allow": [
       "Read",
@@ -58,7 +59,8 @@
       "mcp__github__search_issues",
       "mcp__github__search_pull_requests",
       "mcp__github__search_repositories",
-      "mcp__github__search_users"
+      "mcp__github__search_users",
+      "mcp__postgres__query"
     ],
     "ask": [
       "Bash(git add*)",
