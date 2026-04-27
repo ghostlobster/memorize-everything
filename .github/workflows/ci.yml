@@ -122,6 +122,20 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Dependabot's auto-generated PR bodies don't include a
+            // `Refs #N` line. Per CONTRIBUTING.md → Dependabot triage
+            // policy, patch/minor bumps from Dependabot are intended to
+            // auto-merge on green CI; failing the hygiene check on
+            // every Dependabot PR forces hand-edits and breaks that
+            // promise. Skip when the author is dependabot[bot].
+            // Spoofing requires GitHub-account-level compromise (the
+            // login is set by GitHub, not by the PR body), which is
+            // outside the threat model. See #51.
+            const author = context.payload.pull_request.user.login;
+            if (author === "dependabot[bot]") {
+              core.info("Skipping hygiene check: Dependabot PR.");
+              return;
+            }
             const body = context.payload.pull_request.body || "";
             // Accepts: "Closes #123", "Fixes GH-123", "Ref: #4", "Refs #5",
             // or a GitHub issue URL.
