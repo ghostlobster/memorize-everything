@@ -156,6 +156,12 @@ scripts/smoke-deck.ts              # End-to-end generation test
 Neon supports per-preview-deploy branches — the `DATABASE_URL` passed
 to each preview build is automatically branched.
 
+For the **first** production migration (and the standard flow for
+every subsequent one), see
+[`docs/runbooks/production-migration.md`](./docs/runbooks/production-migration.md)
+— step-by-step prerequisites, migration apply, OAuth callback,
+smoke test, and rollback.
+
 ## Future work (documented trade-offs)
 
 | Deferred feature | Why deferred | What it costs to add |
