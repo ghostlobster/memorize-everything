@@ -24,7 +24,8 @@ ticket-first, coverage-gated, never-push-to-main workflow from
 │   ├── ticket/SKILL.md           /ticket — open issue + cut branch
 │   ├── migrate/SKILL.md          /migrate — safe Drizzle migration flow
 │   ├── deck/SKILL.md             /deck — end-to-end generation smoke test
-│   └── db-inspect/SKILL.md       /db-inspect — read-only Neon preview queries
+│   ├── db-inspect/SKILL.md       /db-inspect — read-only Neon preview queries
+│   └── upgrade/SKILL.md          /upgrade <N> — run a #20-tracked dep upgrade end-to-end
 └── agents/
     ├── deck-qa.md                QA generated decks for contract compliance
     ├── schema-migrator.md        Scoped specialist for schema.ts + drizzle/
