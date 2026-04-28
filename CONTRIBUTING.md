@@ -145,18 +145,26 @@ Conventional Commits title check still applies — Dependabot's
 default titles (`chore(deps): bump foo from x to y`) already
 match.
 
-**Pre-release versions are skipped.** `.github/dependabot.yml`
-has a global `ignore` rule for `*-alpha*`, `*-beta*`, `*-rc*`,
-`*-canary*`, `*-next*`, `*-pre*`, `*-experimental*`, and
-`*-dev*` version suffixes. The on-paper effect: Dependabot
-never proposes a pre-release bump. The off-paper effect:
-packages currently pinned to a pre-release (only `next-auth` at
-the time of writing — `5.0.0-beta.30`) stay on whatever
-pre-release they're on until a stable release is published or
-someone deliberately migrates them. Acceptable for `next-auth`
-(Auth.js v5 has been beta-only for ~2 years and has no stable
-release as of this writing); revisit if any other dep ends up
-on a beta line.
+**Pre-release versions are skipped.** Dependabot's default
+behavior already skips pre-release versions for any package
+pinned to a stable release in `package.json` — so for the vast
+majority of our deps there's nothing to configure. The one
+exception is `next-auth`, which is pinned to `5.0.0-beta.30`
+because Auth.js v5 has been beta-only since 2024. Without
+intervention, Dependabot would propose every beta-to-beta patch
+on that line. `.github/dependabot.yml` therefore carries a
+single targeted entry — `dependency-name: "next-auth"` under
+`ignore:` — to freeze it on the current beta. When Auth.js v5
+ships stable, drop that entry and let Dependabot propose the
+upgrade normally. Revisit if any other dep ever ends up on a
+pre-release line.
+
+> History: an earlier attempt (#61) tried to express this
+> globally via wildcard `versions:` patterns like `"*-beta*"`.
+> Dependabot's `versions:` field only accepts SemVer range
+> specifiers (not globs), so the whole config was rejected and
+> Dependabot stopped running. Fixed in #62 with the targeted
+> entry above.
 
 ### Required CI checks
 
