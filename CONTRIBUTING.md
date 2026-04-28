@@ -138,6 +138,13 @@ silently merging changes that need code adaptation. The harness
 already enforces ticket-first workflow, so deferring a major to a
 ticket costs almost nothing.
 
+**Note on `PR hygiene (ticket + title)`:** the ticket-reference
+check is **skipped for `dependabot[bot]`** PRs because Dependabot
+doesn't add `Refs #N` to its auto-generated bodies. The
+Conventional Commits title check still applies — Dependabot's
+default titles (`chore(deps): bump foo from x to y`) already
+match.
+
 ### Required CI checks
 
 The following must pass before merge:

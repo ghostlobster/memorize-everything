@@ -22,12 +22,42 @@ cmd="$(jq -r '.tool_input.command // empty')"
 if [[ -z "$cmd" ]]; then exit 0; fi
 
 # Normalize the command before pattern-matching so dangerous words like
-# `main` / `--force` inside shell comments or quoted strings do not
-# false-positive the guards below. This is a best-effort tokenizer, not
-# a full shell parser — it covers the common cases (comment lines,
-# double/single-quoted literals) that were biting real sessions. See
-# issue #23.
+# `main` / `--force` inside shell comments, quoted strings, or
+# heredoc bodies do not false-positive the guards below. This is a
+# best-effort tokenizer, not a full shell parser — it covers the
+# common cases that were biting real sessions. See issues #23 and #39.
+#
+# Order matters:
+#   1. Strip heredoc bodies first so their content can't slip through
+#      the comment-line or quoted-string passes (heredoc bodies often
+#      contain `#` and quotes literally).
+#   2. Strip comment-only lines.
+#   3. Strip balanced double-quoted strings.
+#   4. Strip balanced single-quoted strings.
+strip_heredocs() {
+  awk '
+    BEGIN { in_heredoc = 0; delim = "" }
+    {
+      if (in_heredoc) {
+        if (match($0, "^[[:space:]]*" delim "[[:space:]]*$")) {
+          in_heredoc = 0
+          delim = ""
+        }
+        next
+      }
+      if (match($0, /<<-?[[:space:]]*['\''""]?[A-Za-z_][A-Za-z0-9_]*['\''""]?/) > 0) {
+        token = substr($0, RSTART, RLENGTH)
+        gsub(/<<-?[[:space:]]*['\''""]?/, "", token)
+        gsub(/['\''""]?$/, "", token)
+        delim = token
+        in_heredoc = 1
+      }
+      print
+    }
+  '
+}
 cmd_effective="$(printf '%s\n' "$cmd" \
+  | strip_heredocs \
   | sed -E '/^[[:space:]]*#/d' \
   | sed -E 's/"[^"]*"/ /g' \
   | sed -E "s/'[^']*'/ /g" \

@@ -71,6 +71,22 @@ run_case "main in a single-quoted string"        "echo 'note: main branch landed
 run_case "--force in a comment"                  "$(printf '# dont use --force here\ngit push origin feat/foo')" allow
 
 # ---------------------------------------------------------------------------
+# Heredoc body false positives — #39 repros.
+# ---------------------------------------------------------------------------
+
+run_case "main in unquoted heredoc body" \
+  "$(printf 'git commit -m "$(cat <<EOF\nrule: never push to main now\nEOF\n)"')" \
+  allow
+
+run_case "main in single-quoted heredoc body" \
+  "$(printf "git commit -m \"\$(cat <<'EOF'\nlist: master, main, develop\nEOF\n)\"")" \
+  allow
+
+run_case "real push-to-main alongside harmless heredoc still denies" \
+  "$(printf 'git push origin main\ncat <<EOF\ndone\nEOF')" \
+  deny
+
+# ---------------------------------------------------------------------------
 # Dangerous commands — all should DENY.
 # ---------------------------------------------------------------------------
 
