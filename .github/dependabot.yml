@@ -46,27 +46,21 @@ updates:
           - "eslint-*"
           - "@typescript-eslint/*"
     ignore:
-      # Skip every pre-release suffix repo-wide. Dependabot already
-      # skips pre-releases by default for packages whose
-      # package.json line is on a stable version; this block makes
-      # it explicit so any future accidentally-pinned beta gets
-      # ignored without hand-intervention. See #60.
+      # Freeze next-auth on its current Auth.js v5 beta. Dependabot
+      # already skips pre-releases by default for stable-pinned
+      # packages, so the only pre-release line we actually need to
+      # silence is next-auth itself (currently 5.0.0-beta.30; v5
+      # has been beta-only since 2024). Without this entry,
+      # Dependabot would propose every beta-to-beta patch. When v5
+      # stable ships, drop this entry and let the normal flow
+      # propose the upgrade. See #60, #62.
       #
-      # Side-effect: next-auth is currently 5.0.0-beta.30 and
-      # Auth.js v5 remains beta-only as of 2026; Dependabot will
-      # stop bumping next-auth until v5 ships stable. Acceptable
-      # trade-off — the current beta works; future v5 stable will
-      # land automatically once it's available.
-      - dependency-name: "*"
-        versions:
-          - "*-alpha*"
-          - "*-beta*"
-          - "*-rc*"
-          - "*-canary*"
-          - "*-next*"
-          - "*-pre*"
-          - "*-experimental*"
-          - "*-dev*"
+      # Note: a previous attempt (#61) used wildcard `versions:`
+      # patterns like "*-beta*" to express this globally, but
+      # `versions:` only accepts SemVer range specifiers, not
+      # globs — Dependabot rejected the whole config. Keep this
+      # block targeted.
+      - dependency-name: "next-auth"
 
   - package-ecosystem: "github-actions"
     directory: "/"
