@@ -145,6 +145,19 @@ Conventional Commits title check still applies — Dependabot's
 default titles (`chore(deps): bump foo from x to y`) already
 match.
 
+**Pre-release versions are skipped.** `.github/dependabot.yml`
+has a global `ignore` rule for `*-alpha*`, `*-beta*`, `*-rc*`,
+`*-canary*`, `*-next*`, `*-pre*`, `*-experimental*`, and
+`*-dev*` version suffixes. The on-paper effect: Dependabot
+never proposes a pre-release bump. The off-paper effect:
+packages currently pinned to a pre-release (only `next-auth` at
+the time of writing — `5.0.0-beta.30`) stay on whatever
+pre-release they're on until a stable release is published or
+someone deliberately migrates them. Acceptable for `next-auth`
+(Auth.js v5 has been beta-only for ~2 years and has no stable
+release as of this writing); revisit if any other dep ends up
+on a beta line.
+
 ### Required CI checks
 
 The following must pass before merge:
