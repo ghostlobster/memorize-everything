@@ -34,10 +34,15 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
-  // No globalSetup. Seeding happens in-process via
-  // src/instrumentation.ts so the Next.js server and the seeder
-  // share the same pglite instance — multi-process file sharing
-  // is unreliable. Idempotent (checks userCount > 0).
+  // Seed happens in a separate process (scripts/seed-e2e.ts) before
+  // the webServer starts. The seed writes to PGLITE_DATA_DIR and
+  // exits cleanly; pnpm start then opens the same data directory.
+  // The earlier in-process instrumentation.ts approach was deleted
+  // for Next 16 — Turbopack pulled the pglite/drizzle stack into
+  // every Edge runtime chunk regardless of NEXT_RUNTIME guards or
+  // dynamic-import opacity, crashing every Vercel deploy.
+  // Sequential seed → start avoids the multi-process pglite issue
+  // (no concurrent writers).
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
@@ -52,9 +57,9 @@ export default defineConfig({
         // `next dev`: dev compiles routes on first request which
         // makes the webServer wait flaky in CI, and any module-load
         // error (DB driver, auth config) surfaces at build time
-        // rather than mid-test. Build runs against the same
-        // DB_DRIVER=pglite seed used at runtime.
-        command: "pnpm build && pnpm start",
+        // rather than mid-test. The seed step runs between build and
+        // start so the data dir exists when next start opens it.
+        command: "pnpm build && pnpm seed:e2e && pnpm start",
         url: BASE_URL,
         reuseExistingServer: !process.env.CI,
         timeout: 240_000,

@@ -29,7 +29,7 @@ export async function primeCard(
       .filter(Boolean)
       .join("\n"),
     temperature: 0.5,
-    maxTokens: 160,
+    maxOutputTokens: 160,
   });
   return text.trim();
 }
@@ -53,7 +53,7 @@ export async function analogyForCard(
       .filter(Boolean)
       .join("\n"),
     temperature: 0.6,
-    maxTokens: 220,
+    maxOutputTokens: 220,
   });
   return text.trim();
 }
