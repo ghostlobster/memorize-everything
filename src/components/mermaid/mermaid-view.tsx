@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { normalizeMermaid } from "@/lib/ai/mermaid";
 
 /**
  * Client-only Mermaid renderer. Mermaid pulls in DOM APIs so it cannot run
@@ -25,7 +26,7 @@ export function MermaidView({ source }: { source: string }) {
           fontFamily: "var(--font-sans)",
         });
         const id = `mmd-${Math.random().toString(36).slice(2, 10)}`;
-        const { svg } = await mermaid.render(id, source);
+        const { svg } = await mermaid.render(id, normalizeMermaid(source));
         if (!cancelled && ref.current) {
           ref.current.innerHTML = svg;
           setError(null);
