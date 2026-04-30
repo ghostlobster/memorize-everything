@@ -111,6 +111,7 @@ jobs:
             fix
             chore
             docs
+            pr
             refactor
             test
             perf
