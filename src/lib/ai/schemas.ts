@@ -45,7 +45,7 @@ export const DeckPayloadSchema = z.object({
     .string()
     .min(20)
     .describe(
-      "Mermaid.js flowchart syntax for the knowledge graph. Must start with 'flowchart' or 'graph'. Do NOT wrap in markdown code fences.",
+      "Mermaid.js flowchart syntax for the knowledge graph. Must start with 'flowchart' or 'graph'. Do NOT wrap in markdown code fences. Wrap every node label in double quotes (e.g., A[\"label\"], B{\"label\"}).",
     ),
   cards: z
     .array(FlashcardSchema)
