@@ -31,11 +31,14 @@ export async function generateDeck(
 ): Promise<GeneratedDeck> {
   const profile = resolveModel("strong", override);
 
+  // Anthropic models don't support explicit temperature in structured output mode
+  const supportsTemperature = profile.provider !== "anthropic";
+
   const pass1 = await generateText({
     model: profile.model(),
     system: KNOWLEDGE_ARCHITECT_SYSTEM,
     prompt: `${buildTopicPrompt(req)}\n\n${PHASE1_INSTRUCTIONS}`,
-    temperature: 0.4,
+    ...(supportsTemperature && { temperature: 0.4 }),
   });
 
   const pass2 = await generateObject({
@@ -52,7 +55,7 @@ export async function generateDeck(
       "",
       PHASE234_INSTRUCTIONS,
     ].join("\n"),
-    temperature: 0.3,
+    ...(supportsTemperature && { temperature: 0.3 }),
   });
 
   const mermaid = normalizeMermaid(pass2.object.mermaid);

@@ -1,11 +1,10 @@
 import { requireUser } from "@/lib/auth/require-user";
-import { availableStrongModels } from "@/lib/ai/models";
-import { createDeckAction } from "@/server/actions/decks";
+import { availableAllModels } from "@/lib/ai/models";
 import { NewDeckForm } from "./new-deck-form";
 
 export default async function NewDeckPage() {
   await requireUser();
-  const availableModels = availableStrongModels().map((m) => ({
+  const availableModels = availableAllModels().map((m) => ({
     provider: m.provider,
     modelId: m.id,
     label: m.label,
@@ -20,7 +19,7 @@ export default async function NewDeckPage() {
           pass. Generation takes 20–60 seconds.
         </p>
       </header>
-      <NewDeckForm action={createDeckAction} availableModels={availableModels} />
+      <NewDeckForm availableModels={availableModels} />
     </div>
   );
 }

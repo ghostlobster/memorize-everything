@@ -119,11 +119,19 @@ export default async function HomePage() {
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <CardTitle className="leading-snug">{deck.topic}</CardTitle>
-                    {Number(deck.dueCount) > 0 && (
-                      <Badge variant="warning">
-                        {Number(deck.dueCount)} due
-                      </Badge>
-                    )}
+                    <div className="flex shrink-0 flex-wrap gap-1">
+                      {deck.status === "generating" && (
+                        <Badge variant="secondary">Generating…</Badge>
+                      )}
+                      {deck.status === "failed" && (
+                        <Badge variant="destructive">Failed</Badge>
+                      )}
+                      {Number(deck.dueCount) > 0 && (
+                        <Badge variant="warning">
+                          {Number(deck.dueCount)} due
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <CardDescription className="flex flex-wrap gap-2 pt-1">
                     <Badge variant="secondary">{deck.level}</Badge>
@@ -135,7 +143,9 @@ export default async function HomePage() {
                 </CardHeader>
                 <CardContent className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>Created {formatRelative(deck.createdAt)}</span>
-                  <span className="font-mono">{deck.modelId}</span>
+                  {deck.modelId && (
+                    <span className="font-mono">{deck.modelId}</span>
+                  )}
                 </CardContent>
               </Card>
             </Link>
