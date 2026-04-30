@@ -49,9 +49,9 @@ export const DeckPayloadSchema = z.object({
     ),
   cards: z
     .array(FlashcardSchema)
-    .min(8)
+    .min(1)
     .max(20)
-    .describe("High-quality flashcards covering the core concepts."),
+    .describe("8–20 high-quality flashcards covering the core concepts."),
   mnemonics: z
     .array(MnemonicSchema)
     .min(1)
