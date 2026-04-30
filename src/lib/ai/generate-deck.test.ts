@@ -32,16 +32,24 @@ describe("normalizeMermaid", () => {
 describe("quoteUnsafeLabels", () => {
   it("quotes the failing Logistic Regression input", () => {
     const input = [
-      "flowchart TD",
-      "  A[Logit Function] --> B{Sigmoid Function σ(z)};",
-      "  B --> C[Probability p];",
-      "  C --> D[Log-Odds ln(p/(1-p))];",
+      "graph TD",
+      "  subgraph Logistic Regression Model",
+      "    A[Linear Equation z = β] --> B{Sigmoid Function σ(z)};",
+      "    B --> C[Probability p ∈ [0, 1]];",
+      "    C --> D{Decision Boundary p=0.5?};",
+      "  end",
+      "  G[Cost Function: Binary Cross-Entropy] --> H(Gradient Descent);",
+      "  I[Logit Function ln(p/(1-p))] --> B;",
     ].join("\n");
     const expected = [
-      "flowchart TD",
-      '  A[Logit Function] --> B{"Sigmoid Function σ(z)"};',
-      "  B --> C[Probability p];",
-      '  C --> D["Log-Odds ln(p/(1-p))"];',
+      "graph TD",
+      "  subgraph Logistic Regression Model",
+      '    A[Linear Equation z = β] --> B{"Sigmoid Function σ(z)"};',
+      '    B --> C["Probability p ∈ [0, 1]"];',
+      "    C --> D{Decision Boundary p=0.5?};",
+      "  end",
+      '  G["Cost Function: Binary Cross-Entropy"] --> H(Gradient Descent);',
+      '  I["Logit Function ln(p/(1-p))"] --> B;',
     ].join("\n");
     expect(quoteUnsafeLabels(input)).toBe(expected);
   });
@@ -52,9 +60,21 @@ describe("quoteUnsafeLabels", () => {
     );
   });
 
+  it("quotes square-bracket labels with nested brackets", () => {
+    expect(quoteUnsafeLabels("  C[Probability p ∈ [0, 1]]")).toBe(
+      '  C["Probability p ∈ [0, 1]"]',
+    );
+  });
+
   it("quotes curly-brace labels containing parentheses", () => {
     expect(quoteUnsafeLabels("  B{Sigmoid σ(z)}")).toBe(
       '  B{"Sigmoid σ(z)"}',
+    );
+  });
+
+  it("quotes round-bracket labels with nested parentheses", () => {
+    expect(quoteUnsafeLabels("  C(some (sub) thing)")).toBe(
+      '  C("some (sub) thing")',
     );
   });
 
