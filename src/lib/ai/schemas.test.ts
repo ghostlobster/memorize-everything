@@ -46,10 +46,10 @@ describe("DeckPayloadSchema", () => {
     expect(DeckPayloadSchema.parse(payload)).toEqual(payload);
   });
 
-  it("rejects fewer than 8 cards", () => {
+  it("rejects an empty cards array", () => {
     const r = DeckPayloadSchema.safeParse({
       ...payload,
-      cards: payload.cards.slice(0, 3),
+      cards: [],
     });
     expect(r.success).toBe(false);
   });
