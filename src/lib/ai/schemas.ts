@@ -50,13 +50,11 @@ export const DeckPayloadSchema = z.object({
   cards: z
     .array(FlashcardSchema)
     .min(8)
-    .max(20)
-    .describe("High-quality flashcards covering the core concepts."),
+    .describe("High-quality flashcards covering the core concepts (8–20 cards)."),
   mnemonics: z
     .array(MnemonicSchema)
     .min(1)
-    .max(5)
-    .describe("Memory devices for dense lists or technical vocabulary."),
+    .describe("Memory devices for dense lists or technical vocabulary (1–5 devices)."),
   interleaving: InterleavingSchema.describe(
     "A related tangent topic for cross-domain retention.",
   ),

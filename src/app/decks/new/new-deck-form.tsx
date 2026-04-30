@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { createDeckAction } from "@/server/actions/decks";
 
 const LEVELS = [
   { value: "novice", label: "Novice" },
@@ -29,12 +30,11 @@ const GOALS = [
 type AvailableModel = { provider: string; modelId: string; label: string };
 
 export function NewDeckForm({
-  action,
   availableModels,
 }: {
-  action: (fd: FormData) => Promise<void>;
   availableModels: AvailableModel[];
 }) {
+  const [state, formAction] = useActionState(createDeckAction, null);
   const [level, setLevel] = useState("intermediate");
   const [goal, setGoal] = useState("mastery");
   const [model, setModel] = useState<AvailableModel>(
@@ -42,7 +42,13 @@ export function NewDeckForm({
   );
 
   return (
-    <form action={action} className="space-y-6">
+    <form action={formAction} className="space-y-6">
+      {state?.error && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {state.error}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Topic</CardTitle>
@@ -102,7 +108,8 @@ export function NewDeckForm({
 
           <div className="space-y-2">
             <label htmlFor="scope" className="text-sm font-medium">
-              Scope / constraints <span className="text-muted-foreground">(optional)</span>
+              Scope / constraints{" "}
+              <span className="text-muted-foreground">(optional)</span>
             </label>
             <Textarea
               id="scope"
@@ -147,7 +154,7 @@ function SubmitButton() {
       {pending ? (
         <>
           <Loader2 className="h-4 w-4 animate-spin" />
-          Generating module — this takes ~30s…
+          Creating deck…
         </>
       ) : (
         <>

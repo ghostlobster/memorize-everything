@@ -6,14 +6,15 @@ import { and, eq, lte, asc, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { decks, cards, suggestions, reviews } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/require-user";
-import { generateDeck } from "@/lib/ai/generate-deck";
 import { primeCard, analogyForCard } from "@/lib/ai/prime-card";
 import { schedule } from "@/lib/sr/sm2";
 import { TopicRequestSchema } from "@/lib/ai/schemas";
-import type { ProviderId } from "@/lib/ai/models";
 import type { Grade } from "@/lib/db/schema";
 
-export async function createDeckAction(formData: FormData) {
+export async function createDeckAction(
+  _prev: { error: string } | null,
+  formData: FormData,
+): Promise<{ error: string } | null> {
   const user = await requireUser();
 
   const parsed = TopicRequestSchema.safeParse({
@@ -23,19 +24,13 @@ export async function createDeckAction(formData: FormData) {
     scope: (formData.get("scope") as string) || undefined,
   });
   if (!parsed.success) {
-    throw new Error(
-      `Invalid topic: ${parsed.error.issues.map((i) => i.message).join("; ")}`,
-    );
+    return {
+      error: `Invalid topic: ${parsed.error.issues.map((i) => i.message).join("; ")}`,
+    };
   }
 
   const rawProvider = formData.get("provider") as string | null;
   const rawModelId = formData.get("modelId") as string | null;
-  const override =
-    rawProvider && rawModelId
-      ? { provider: rawProvider as ProviderId, modelId: rawModelId }
-      : undefined;
-
-  const generated = await generateDeck(parsed.data, override);
 
   const [inserted] = await db
     .insert(decks)
@@ -45,30 +40,15 @@ export async function createDeckAction(formData: FormData) {
       level: parsed.data.level,
       goal: parsed.data.goal,
       scope: parsed.data.scope,
-      sourceMarkdown: generated.markdown,
-      mermaidSrc: generated.payload.mermaid,
-      mnemonics: generated.payload.mnemonics,
-      interleaving: generated.payload.interleaving,
-      modelProvider: generated.modelProvider,
-      modelId: generated.modelId,
+      status: "generating",
+      modelProvider: rawProvider || null,
+      modelId: rawModelId || null,
     })
     .returning();
 
-  if (!inserted) throw new Error("Failed to persist deck");
-
-  await db.insert(cards).values(
-    generated.payload.cards.map((c, idx) => ({
-      deckId: inserted.id,
-      front: c.front,
-      back: c.back,
-      whyItMatters: c.whyItMatters,
-      referenceSection: c.referenceSection,
-      orderIdx: idx,
-    })),
-  );
+  if (!inserted) throw new Error("Failed to create deck record");
 
   revalidatePath("/");
-  revalidatePath("/review");
   redirect(`/decks/${inserted.id}`);
 }
 
@@ -203,6 +183,7 @@ export async function listUserDecks(userId: string) {
       topic: decks.topic,
       level: decks.level,
       goal: decks.goal,
+      status: decks.status,
       createdAt: decks.createdAt,
       modelProvider: decks.modelProvider,
       modelId: decks.modelId,

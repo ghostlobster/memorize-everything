@@ -84,6 +84,7 @@ export const suggestionKindEnum = pgEnum("suggestion_kind", [
   "analogy",
 ]);
 export const cardStateEnum = pgEnum("card_state", ["new", "learning", "review"]);
+export const deckStatusEnum = pgEnum("deck_status", ["generating", "ready", "failed"]);
 
 export const decks = pgTable(
   "deck",
@@ -96,7 +97,9 @@ export const decks = pgTable(
     level: text("level").notNull().default("intermediate"),
     goal: text("goal").notNull().default("mastery"),
     scope: text("scope"),
-    sourceMarkdown: text("sourceMarkdown").notNull(),
+    status: deckStatusEnum("status").notNull().default("ready"),
+    generationError: text("generationError"),
+    sourceMarkdown: text("sourceMarkdown"),
     mermaidSrc: text("mermaidSrc"),
     mnemonics: jsonb("mnemonics").$type<
       { name: string; device: string; explanation?: string }[]
@@ -105,8 +108,8 @@ export const decks = pgTable(
       topic: string;
       reason: string;
     } | null>(),
-    modelProvider: text("modelProvider").notNull(),
-    modelId: text("modelId").notNull(),
+    modelProvider: text("modelProvider"),
+    modelId: text("modelId"),
     createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
   },

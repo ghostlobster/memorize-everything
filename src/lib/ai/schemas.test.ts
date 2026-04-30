@@ -54,12 +54,12 @@ describe("DeckPayloadSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  it("rejects more than 20 cards", () => {
+  it("accepts more than 20 cards (max enforced by prompt, not schema)", () => {
     const r = DeckPayloadSchema.safeParse({
       ...payload,
       cards: Array.from({ length: 21 }, () => validCard),
     });
-    expect(r.success).toBe(false);
+    expect(r.success).toBe(true);
   });
 
   it("rejects a tiny mermaid string", () => {

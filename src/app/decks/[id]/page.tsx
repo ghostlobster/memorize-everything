@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { MarkdownView } from "@/components/markdown/markdown-view";
 import { MermaidView } from "@/components/mermaid/mermaid-view";
 import { formatRelative } from "@/lib/utils";
+import { GeneratingDeckView } from "./generating-view";
 
 export default async function DeckPage({
   params,
@@ -26,9 +27,30 @@ export default async function DeckPage({
   const deck = await getDeckForUser(id, user.id);
   if (!deck) notFound();
 
-  // Server Component: renders once per request, not in React's reconciler,
-  // so `Date.now()` here is not a purity violation. The lint rule can't
-  // distinguish RSC from Client Components.
+  if (deck.status === "generating") {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <GeneratingDeckView deckId={deck.id} topic={deck.topic} />
+      </div>
+    );
+  }
+
+  if (deck.status === "failed") {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <GeneratingDeckView
+          deckId={deck.id}
+          topic={deck.topic}
+          initialError={
+            deck.generationError ??
+            "An unexpected error occurred during generation."
+          }
+        />
+      </div>
+    );
+  }
+
+  // status === "ready" — sourceMarkdown is guaranteed non-null
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   const dueCount = deck.cards.filter(
@@ -47,9 +69,11 @@ export default async function DeckPage({
               <Badge variant="secondary">{deck.level}</Badge>
               <Badge variant="secondary">{deck.goal}</Badge>
               <Badge variant="outline">{deck.cards.length} cards</Badge>
-              <Badge variant="outline" className="font-mono">
-                {deck.modelProvider}/{deck.modelId}
-              </Badge>
+              {deck.modelProvider && deck.modelId && (
+                <Badge variant="outline" className="font-mono">
+                  {deck.modelProvider}/{deck.modelId}
+                </Badge>
+              )}
               {dueCount > 0 && (
                 <Badge variant="warning">{dueCount} due</Badge>
               )}
@@ -66,7 +90,7 @@ export default async function DeckPage({
 
       <section className="space-y-4">
         <SectionTitle icon={<Brain className="h-4 w-4" />} title="Phase 1 — Knowledge Synthesis" />
-        <MarkdownView>{deck.sourceMarkdown}</MarkdownView>
+        <MarkdownView>{deck.sourceMarkdown!}</MarkdownView>
       </section>
 
       {deck.mermaidSrc && (

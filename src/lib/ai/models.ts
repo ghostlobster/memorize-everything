@@ -40,6 +40,13 @@ export const MODEL_REGISTRY: Record<string, ModelProfile> = {
     tier: "strong",
     model: () => anthropic("claude-opus-4-7"),
   },
+  "anthropic:claude-sonnet-4-6": {
+    provider: "anthropic",
+    id: "claude-sonnet-4-6",
+    label: "Claude Sonnet 4.6",
+    tier: "strong",
+    model: () => anthropic("claude-sonnet-4-6"),
+  },
   "anthropic:claude-haiku-4-5-20251001": {
     provider: "anthropic",
     id: "claude-haiku-4-5-20251001",
@@ -67,6 +74,14 @@ export function availableStrongModels(): ModelProfile[] {
   const providers = availableProviders();
   return Object.values(MODEL_REGISTRY).filter(
     (m) => m.tier === "strong" && providers.includes(m.provider),
+  );
+}
+
+/** All registered models across all tiers, filtered to available providers. */
+export function availableAllModels(): ModelProfile[] {
+  const providers = availableProviders();
+  return Object.values(MODEL_REGISTRY).filter((m) =>
+    providers.includes(m.provider),
   );
 }
 
