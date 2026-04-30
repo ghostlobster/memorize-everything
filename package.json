@@ -18,7 +18,8 @@
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "seed:e2e": "tsx scripts/seed-e2e.ts",
-    "smoke:deck": "tsx scripts/smoke-deck.ts"
+    "smoke:deck": "tsx scripts/smoke-deck.ts",
+    "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.72",
