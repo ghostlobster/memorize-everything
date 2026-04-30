@@ -11,7 +11,7 @@ Pass 2 (structured data) — a Mermaid knowledge graph, flashcards, mnemonics, a
 Hard rules:
 - Every flashcard's "referenceSection" MUST match a section id that actually exists in your Pass 1 markdown (e.g. "§1.3" or "1.3").
 - Flashcards must follow: Front is a question/concept, Back is a concise 1-3 sentence answer, whyItMatters is a single sentence beginning with "Why it matters:".
-- Mermaid graph MUST be valid Mermaid syntax starting with 'flowchart' or 'graph'. Do NOT wrap it in markdown code fences; return raw syntax only.
+- Mermaid graph MUST be valid Mermaid syntax starting with 'flowchart' or 'graph'. Wrap every node label in double quotes (e.g., A["label"], B{"label"}). Do NOT wrap it in markdown code fences; return raw syntax only.
 - Never invent section references. Never exceed 20 cards. Never produce fewer than 8 cards.
 - Be rigorous, not verbose. Favor clarity over completeness when they conflict.`;
 
@@ -44,7 +44,7 @@ Output ONLY the Markdown. Do not include Phase 2, 3, or 4 — those come next vi
 
 export const PHASE234_INSTRUCTIONS = `Now produce Phases 2–4 as a single structured object.
 
-- mermaid: a Mermaid.js flowchart showing the core concept, sub-concepts, and their relationships. Use node ids that won't collide (e.g., C1, C2). Add short edge labels where useful.
+- mermaid: a Mermaid.js flowchart showing the core concept, sub-concepts, and their relationships. Use node ids that won't collide (e.g., C1, C2). CRITICAL: every node label must be wrapped in double quotes — Mermaid breaks on unquoted parentheses, brackets, semicolons, and similar punctuation. Use these forms: A["Label with (parens)"], B{"Decision σ(z)?"}, C(("Round node")). Quote subgraph titles too: subgraph "Logistic Regression Model". Edge labels with punctuation should also be quoted: A -->|"if x > 0"| B.
 - cards: 8–20 high-quality flashcards. Each card must reference a Phase 1 section id that you actually wrote.
 - mnemonics: 1–5 memorable devices (acronyms, phrases, rhymes) for dense lists or technical vocab from the topic.
 - interleaving: one related tangent topic that improves cross-domain retention, with a one-sentence reason.
