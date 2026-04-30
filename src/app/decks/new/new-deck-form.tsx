@@ -26,13 +26,20 @@ const GOALS = [
   { value: "research", label: "Research-grade" },
 ];
 
+type AvailableModel = { provider: string; modelId: string; label: string };
+
 export function NewDeckForm({
   action,
+  availableModels,
 }: {
   action: (fd: FormData) => Promise<void>;
+  availableModels: AvailableModel[];
 }) {
   const [level, setLevel] = useState("intermediate");
   const [goal, setGoal] = useState("mastery");
+  const [model, setModel] = useState<AvailableModel>(
+    availableModels[0] ?? { provider: "", modelId: "", label: "" },
+  );
 
   return (
     <form action={action} className="space-y-6">
@@ -104,6 +111,27 @@ export function NewDeckForm({
               placeholder="e.g. focus on encoder-only models, skip historical context, must cover attention math"
             />
           </div>
+
+          {availableModels.length > 1 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Model</label>
+              <input type="hidden" name="provider" value={model.provider} />
+              <input type="hidden" name="modelId" value={model.modelId} />
+              <div className="flex flex-wrap gap-2">
+                {availableModels.map((m) => (
+                  <Button
+                    key={`${m.provider}:${m.modelId}`}
+                    type="button"
+                    size="sm"
+                    variant={model.modelId === m.modelId ? "default" : "outline"}
+                    onClick={() => setModel(m)}
+                  >
+                    {m.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

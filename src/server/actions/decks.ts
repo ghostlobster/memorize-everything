@@ -10,6 +10,7 @@ import { generateDeck } from "@/lib/ai/generate-deck";
 import { primeCard, analogyForCard } from "@/lib/ai/prime-card";
 import { schedule } from "@/lib/sr/sm2";
 import { TopicRequestSchema } from "@/lib/ai/schemas";
+import type { ProviderId } from "@/lib/ai/models";
 import type { Grade } from "@/lib/db/schema";
 
 export async function createDeckAction(formData: FormData) {
@@ -27,7 +28,14 @@ export async function createDeckAction(formData: FormData) {
     );
   }
 
-  const generated = await generateDeck(parsed.data);
+  const rawProvider = formData.get("provider") as string | null;
+  const rawModelId = formData.get("modelId") as string | null;
+  const override =
+    rawProvider && rawModelId
+      ? { provider: rawProvider as ProviderId, modelId: rawModelId }
+      : undefined;
+
+  const generated = await generateDeck(parsed.data, override);
 
   const [inserted] = await db
     .insert(decks)

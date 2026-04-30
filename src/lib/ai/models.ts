@@ -63,6 +63,13 @@ export const MODEL_REGISTRY: Record<string, ModelProfile> = {
   },
 };
 
+export function availableStrongModels(): ModelProfile[] {
+  const providers = availableProviders();
+  return Object.values(MODEL_REGISTRY).filter(
+    (m) => m.tier === "strong" && providers.includes(m.provider),
+  );
+}
+
 export function availableProviders(): ProviderId[] {
   const out: ProviderId[] = [];
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) out.push("google");
