@@ -1,7 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
-import type { LanguageModelV1 } from "ai";
+import type { LanguageModel } from "ai";
 
 export type ProviderId = "google" | "anthropic" | "openai";
 
@@ -10,7 +10,7 @@ export interface ModelProfile {
   id: string;
   label: string;
   tier: "strong" | "fast";
-  model: () => LanguageModelV1;
+  model: () => LanguageModel;
 }
 
 /**

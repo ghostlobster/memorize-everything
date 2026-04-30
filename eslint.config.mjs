@@ -1,15 +1,26 @@
-import { FlatCompat } from "@eslint/eslintrc";
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypeScript from "eslint-config-next/typescript";
 
-const compat = new FlatCompat({ baseDirectory: import.meta.dirname });
-
-export default [
-  ...compat.config({
-    extends: ["next/core-web-vitals", "next/typescript"],
+const config = [
+  {
+    ignores: [
+      ".next/**",
+      "coverage/**",
+      "node_modules/**",
+      "playwright-report/**",
+      "test-results/**",
+    ],
+  },
+  ...nextCoreWebVitals,
+  ...nextTypeScript,
+  {
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },
-  }),
+  },
 ];
+
+export default config;

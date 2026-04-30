@@ -12,7 +12,6 @@ import {
  * log) so failures don't have to be debugged blind.
  */
 async function logPageState(page: import("@playwright/test").Page, label: string) {
-  // eslint-disable-next-line no-console
   console.log(
     `\n[diag:${label}] url=${page.url()}\n` +
       `[diag:${label}] title=${await page.title()}\n` +
@@ -44,7 +43,6 @@ test.describe("authenticated golden path", () => {
     // downstream (cookie / Auth.js).
     const debug = await page.request.get("/api/e2e-debug");
     const debugBody = await debug.text();
-    // eslint-disable-next-line no-console
     console.log(
       `[diag:db] status=${debug.status()} body=${debugBody}`,
     );

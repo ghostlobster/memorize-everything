@@ -26,8 +26,13 @@ export default async function DeckPage({
   const deck = await getDeckForUser(id, user.id);
   if (!deck) notFound();
 
+  // Server Component: renders once per request, not in React's reconciler,
+  // so `Date.now()` here is not a purity violation. The lint rule can't
+  // distinguish RSC from Client Components.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
   const dueCount = deck.cards.filter(
-    (c) => c.dueAt.getTime() <= Date.now(),
+    (c) => c.dueAt.getTime() <= now,
   ).length;
 
   return (
@@ -105,7 +110,7 @@ export default async function DeckPage({
                   <span>ease {Number(c.ease).toFixed(2)}</span>
                   <span>
                     next{" "}
-                    {c.dueAt.getTime() <= Date.now()
+                    {c.dueAt.getTime() <= now
                       ? "now"
                       : formatRelative(c.dueAt)}
                   </span>

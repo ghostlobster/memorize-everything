@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -65,7 +65,7 @@ export function ReviewSession({
   const [analogyLoading, setAnalogyLoading] = useState(false);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
-  const startRef = useRef<number>(Date.now());
+  const [startTime] = useState(() => Date.now());
 
   const advance = useCallback(() => {
     startTransition(() => {
@@ -75,7 +75,7 @@ export function ReviewSession({
 
   const handleGrade = useCallback(
     async (grade: Grade) => {
-      const durationMs = Date.now() - startRef.current;
+      const durationMs = Date.now() - startTime;
       const result = await gradeCardAction({ cardId: card.id, grade, durationMs });
       setLastInterval(result.intervalDays);
       if (grade === "wrong") {
@@ -91,7 +91,7 @@ export function ReviewSession({
         advance();
       }
     },
-    [card.id, advance],
+    [card.id, advance, startTime],
   );
 
   const requestAnalogy = useCallback(async () => {
