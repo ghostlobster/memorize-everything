@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -21,6 +22,7 @@ export default function RootLayout({
         <main className="mx-auto w-full max-w-5xl px-4 py-8 md:py-12">
           {children}
         </main>
+        <Analytics />
       </body>
     </html>
   );
