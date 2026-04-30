@@ -43,7 +43,7 @@ jobs:
       DEFAULT_MODEL_PROVIDER: "google"
       GOOGLE_GENERATIVE_AI_API_KEY: "stub"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup pnpm
         # Version picked up from packageManager in package.json.
