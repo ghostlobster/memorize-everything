@@ -17,9 +17,6 @@ if (!url) {
       "Set this env var in Vercel (Project Settings → Environment Variables) " +
       "to the direct (non-pooled) Neon connection string.",
   );
-  // Exit 0 so local/CI builds without the var don't break non-DB workflows.
-  // The missing column will surface as a runtime error in production instead,
-  // which is caught by monitoring rather than silently skipped.
   process.exit(0);
 }
 
@@ -27,10 +24,12 @@ console.log("[migrate] Applying pending migrations…");
 const sql = neon(url);
 const db = drizzle(sql);
 
-try {
-  await migrate(db, { migrationsFolder: "./drizzle" });
-  console.log("[migrate] Done.");
-} catch (err) {
-  console.error("[migrate] Migration failed:", err);
-  process.exit(1);
-}
+void (async () => {
+  try {
+    await migrate(db, { migrationsFolder: "./drizzle" });
+    console.log("[migrate] Done.");
+  } catch (err) {
+    console.error("[migrate] Migration failed:", err);
+    process.exit(1);
+  }
+})();
