@@ -16,6 +16,7 @@ import { MarkdownView } from "@/components/markdown/markdown-view";
 import { MermaidView } from "@/components/mermaid/mermaid-view";
 import { formatRelative } from "@/lib/utils";
 import { GeneratingDeckView } from "./generating-view";
+import { DeckActions } from "@/components/decks/deck-actions";
 
 export default async function DeckPage({
   params,
@@ -50,7 +51,8 @@ export default async function DeckPage({
     );
   }
 
-  // status === "ready" — sourceMarkdown is guaranteed non-null
+  // status === "ready" | "archived" — sourceMarkdown is guaranteed non-null
+  const isArchived = deck.status === "archived";
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   const dueCount = deck.cards.filter(
@@ -74,17 +76,25 @@ export default async function DeckPage({
                   {deck.modelProvider}/{deck.modelId}
                 </Badge>
               )}
-              {dueCount > 0 && (
+              {isArchived && (
+                <Badge variant="secondary">Archived</Badge>
+              )}
+              {!isArchived && dueCount > 0 && (
                 <Badge variant="warning">{dueCount} due</Badge>
               )}
             </div>
           </div>
-          <Button asChild size="lg" disabled={dueCount === 0}>
-            <Link href={`/decks/${deck.id}/review`}>
-              <Play className="h-4 w-4" />
-              {dueCount > 0 ? "Start review" : "All reviewed"}
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {!isArchived && (
+              <Button asChild size="lg" disabled={dueCount === 0}>
+                <Link href={`/decks/${deck.id}/review`}>
+                  <Play className="h-4 w-4" />
+                  {dueCount > 0 ? "Start review" : "All reviewed"}
+                </Link>
+              </Button>
+            )}
+            <DeckActions deckId={deck.id} isArchived={isArchived} />
+          </div>
         </div>
       </header>
 

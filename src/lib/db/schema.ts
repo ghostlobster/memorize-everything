@@ -84,7 +84,7 @@ export const suggestionKindEnum = pgEnum("suggestion_kind", [
   "analogy",
 ]);
 export const cardStateEnum = pgEnum("card_state", ["new", "learning", "review"]);
-export const deckStatusEnum = pgEnum("deck_status", ["generating", "ready", "failed"]);
+export const deckStatusEnum = pgEnum("deck_status", ["generating", "ready", "failed", "archived"]);
 
 export const decks = pgTable(
   "deck",

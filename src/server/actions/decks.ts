@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq, lte, asc, desc, sql } from "drizzle-orm";
+import { and, eq, ne, lte, asc, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { decks, cards, suggestions, reviews } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/require-user";
@@ -59,6 +59,28 @@ export async function deleteDeckAction(deckId: string) {
     .where(and(eq(decks.id, deckId), eq(decks.userId, user.id)));
   revalidatePath("/");
   revalidatePath("/review");
+  redirect("/");
+}
+
+export async function archiveDeckAction(deckId: string) {
+  const user = await requireUser();
+  await db
+    .update(decks)
+    .set({ status: "archived", updatedAt: new Date() })
+    .where(and(eq(decks.id, deckId), eq(decks.userId, user.id)));
+  revalidatePath("/");
+  revalidatePath("/review");
+  redirect("/");
+}
+
+export async function unarchiveDeckAction(deckId: string) {
+  const user = await requireUser();
+  await db
+    .update(decks)
+    .set({ status: "ready", updatedAt: new Date() })
+    .where(and(eq(decks.id, deckId), eq(decks.userId, user.id)));
+  revalidatePath("/");
+  revalidatePath(`/decks/${deckId}`);
 }
 
 export async function gradeCardAction(input: {
@@ -191,7 +213,7 @@ export async function listUserDecks(userId: string) {
       dueCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id} and ${cards.dueAt} <= now())`,
     })
     .from(decks)
-    .where(eq(decks.userId, userId))
+    .where(and(eq(decks.userId, userId), ne(decks.status, "archived")))
     .orderBy(desc(decks.createdAt));
 }
 
@@ -217,7 +239,7 @@ export async function listDueCardsForUser(userId: string, limit = 100) {
     })
     .from(cards)
     .innerJoin(decks, eq(decks.id, cards.deckId))
-    .where(and(eq(decks.userId, userId), lte(cards.dueAt, new Date())))
+    .where(and(eq(decks.userId, userId), ne(decks.status, "archived"), lte(cards.dueAt, new Date())))
     .orderBy(asc(cards.dueAt))
     .limit(limit);
 }

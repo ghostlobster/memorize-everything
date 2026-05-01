@@ -1,0 +1,1 @@
+ALTER TYPE "public"."deck_status" ADD VALUE 'archived';
