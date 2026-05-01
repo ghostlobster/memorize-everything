@@ -83,7 +83,10 @@ test.describe("authenticated golden path", () => {
 
     // --- Start review -------------------------------------------------
     await page.getByRole("link", { name: /start review/i }).click();
+    // Mode selection screen: choose Full review (Feature 5)
     await expect(page).toHaveURL(new RegExp(`/decks/${E2E_DECK_ID}/review$`));
+    await page.getByRole("link", { name: /start full review/i }).click();
+    await expect(page).toHaveURL(new RegExp(`/decks/${E2E_DECK_ID}/review.*mode=full`));
 
     const firstCard = E2E_CARDS[0]!;
     const secondCard = E2E_CARDS[1]!;
