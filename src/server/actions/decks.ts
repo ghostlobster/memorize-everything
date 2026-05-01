@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq, ne, lte, asc, desc, sql } from "drizzle-orm";
+import { and, eq, ne, lte, asc, desc, sql, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { decks, cards, suggestions, reviews } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/require-user";
@@ -133,6 +133,7 @@ export async function gradeCardAction(input: {
   revalidatePath(`/decks/${card.deckId}`);
   revalidatePath(`/decks/${card.deckId}/review`);
   revalidatePath("/review");
+  revalidatePath("/review/multi");
 
   return {
     intervalDays: next.intervalDays,
@@ -257,4 +258,31 @@ export async function nextDueCardInDeck(deckId: string, userId: string) {
     .orderBy(asc(cards.dueAt), asc(cards.orderIdx))
     .limit(1);
   return next ?? null;
+}
+
+export async function listDueCardsForDecks(userId: string, deckIds: string[]) {
+  if (deckIds.length === 0) return [];
+  return db
+    .select({
+      id: cards.id,
+      front: cards.front,
+      back: cards.back,
+      whyItMatters: cards.whyItMatters,
+      referenceSection: cards.referenceSection,
+      repetition: cards.repetition,
+      ease: cards.ease,
+      state: cards.state,
+      deckTopic: decks.topic,
+    })
+    .from(cards)
+    .innerJoin(decks, eq(decks.id, cards.deckId))
+    .where(
+      and(
+        eq(decks.userId, userId),
+        ne(decks.status, "archived"),
+        inArray(cards.deckId, deckIds),
+        lte(cards.dueAt, new Date()),
+      ),
+    )
+    .orderBy(asc(cards.dueAt));
 }

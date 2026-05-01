@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, eq, lte, count } from "drizzle-orm";
+import { and, eq, lte, asc } from "drizzle-orm";
 import { requireUser } from "@/lib/auth/require-user";
 import { db } from "@/lib/db/client";
 import { cards, decks } from "@/lib/db/schema";
-import { nextDueCardInDeck } from "@/server/actions/decks";
 import { ReviewSession } from "./review-session";
+import { ReviewModeSelect } from "@/components/review/review-mode-select";
 import {
   Card,
   CardContent,
@@ -17,10 +17,13 @@ import { Button } from "@/components/ui/button";
 
 export default async function DeckReviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ mode?: string }>;
 }) {
   const { id } = await params;
+  const { mode } = await searchParams;
   const user = await requireUser();
 
   const deck = await db.query.decks.findFirst({
@@ -28,13 +31,22 @@ export default async function DeckReviewPage({
   });
   if (!deck) notFound();
 
-  const next = await nextDueCardInDeck(id, user.id);
-  const [{ remaining }] = await db
-    .select({ remaining: count() })
+  const allDue = await db
+    .select({
+      id: cards.id,
+      front: cards.front,
+      back: cards.back,
+      whyItMatters: cards.whyItMatters,
+      referenceSection: cards.referenceSection,
+      repetition: cards.repetition,
+      ease: cards.ease,
+      state: cards.state,
+    })
     .from(cards)
-    .where(and(eq(cards.deckId, id), lte(cards.dueAt, new Date())));
+    .where(and(eq(cards.deckId, id), lte(cards.dueAt, new Date())))
+    .orderBy(asc(cards.dueAt), asc(cards.orderIdx));
 
-  if (!next) {
+  if (allDue.length === 0) {
     return (
       <div className="mx-auto max-w-xl space-y-6">
         <Card>
@@ -58,20 +70,67 @@ export default async function DeckReviewPage({
     );
   }
 
+  if (!mode) {
+    const criticalCount = allDue.filter(
+      (c) => c.state === "learning" || Number(c.ease) <= 1.6,
+    ).length;
+    return (
+      <ReviewModeSelect
+        deckId={deck.id}
+        deckTopic={deck.topic}
+        fullCount={allDue.length}
+        criticalCount={criticalCount}
+      />
+    );
+  }
+
+  const initialQueue = (
+    mode === "critical"
+      ? allDue
+          .filter((c) => c.state === "learning" || Number(c.ease) <= 1.6)
+          .sort((a, b) => Number(a.ease) - Number(b.ease))
+      : allDue
+  ).map((c) => ({
+    id: c.id,
+    front: c.front,
+    back: c.back,
+    whyItMatters: c.whyItMatters,
+    referenceSection: c.referenceSection,
+    repetition: c.repetition,
+    ease: Number(c.ease),
+  }));
+
+  if (initialQueue.length === 0) {
+    return (
+      <div className="mx-auto max-w-xl space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>No critical cards</CardTitle>
+            <CardDescription>
+              No struggling cards in{" "}
+              <span className="font-medium">{deck.topic}</span> right now.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link href={`/decks/${deck.id}/review?mode=full`}>
+                Full review instead
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/decks/${deck.id}`}>Back to deck</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <ReviewSession
       deckId={deck.id}
       deckTopic={deck.topic}
-      remaining={Number(remaining)}
-      card={{
-        id: next.id,
-        front: next.front,
-        back: next.back,
-        whyItMatters: next.whyItMatters,
-        referenceSection: next.referenceSection,
-        repetition: next.repetition,
-        ease: Number(next.ease),
-      }}
+      initialQueue={initialQueue}
     />
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  AlertTriangle,
   Loader2,
   RotateCcw,
   SkipForward,
@@ -28,7 +29,7 @@ import {
 } from "@/server/actions/decks";
 import type { Grade } from "@/lib/db/schema";
 
-interface ReviewCard {
+export interface ReviewCard {
   id: string;
   front: string;
   back: string;
@@ -36,6 +37,7 @@ interface ReviewCard {
   referenceSection: string | null;
   repetition: number;
   ease: number;
+  deckTopic?: string; // populated in multi-deck sessions
 }
 
 // Flow:
@@ -49,61 +51,111 @@ type Phase = "front" | "back" | "priming" | "revealed" | "analogy";
 export function ReviewSession({
   deckId,
   deckTopic,
-  remaining,
-  card,
+  initialQueue,
+  exitHref,
 }: {
   deckId: string;
   deckTopic: string;
-  remaining: number;
-  card: ReviewCard;
+  initialQueue: ReviewCard[];
+  exitHref?: string;
 }) {
   const router = useRouter();
+
+  // Queue state — all advancement is client-side
+  const [queue, setQueue] = useState<ReviewCard[]>(initialQueue);
+  const [queueIdx, setQueueIdx] = useState(0);
+  const [reReviewCounts, setReReviewCounts] = useState<Record<string, number>>({});
+  const [startTime, setStartTime] = useState(() => Date.now());
+  // Snapshot at session start; not derived from prop so RSC soft-refreshes
+  // (triggered by revalidatePath in gradeCardAction) don't change it mid-session.
+  const [originalDue] = useState(initialQueue.length);
+
+  const currentCard = queue[queueIdx];
+  const isReReview = (reReviewCounts[currentCard?.id] ?? 0) > 0;
+  const reReviewPending = queue
+    .slice(queueIdx + 1)
+    .filter((c) => (reReviewCounts[c.id] ?? 0) > 0).length;
+
   const [phase, setPhase] = useState<Phase>("front");
   const [primingQuestion, setPrimingQuestion] = useState<string | null>(null);
   const [analogy, setAnalogy] = useState<string | null>(null);
   const [primingLoading, setPrimingLoading] = useState(false);
   const [analogyLoading, setAnalogyLoading] = useState(false);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const [startTime] = useState(() => Date.now());
+  const [gradeError, setGradeError] = useState<string | null>(null);
+  // Ref used to set data-testid imperatively after mount effects run.
+  // (Satisfies the react-hooks/set-state-in-effect lint rule — pure DOM
+  // mutation, no cascading React render.)
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const resetCardState = useCallback(() => {
+    setPhase("front");
+    setPrimingQuestion(null);
+    setAnalogy(null);
+    setLastInterval(null);
+  }, []);
 
   const advance = useCallback(() => {
-    startTransition(() => {
-      router.refresh();
-    });
-  }, [router]);
+    const nextIdx = queueIdx + 1;
+    if (nextIdx >= queue.length) {
+      router.push(exitHref ?? `/decks/${deckId}`);
+      return;
+    }
+    setQueueIdx(nextIdx);
+    setStartTime(Date.now());
+    resetCardState();
+  }, [queueIdx, queue.length, deckId, exitHref, router, resetCardState]);
 
   const handleGrade = useCallback(
     async (grade: Grade) => {
-      const durationMs = Date.now() - startTime;
-      const result = await gradeCardAction({ cardId: card.id, grade, durationMs });
-      setLastInterval(result.intervalDays);
-      if (grade === "wrong") {
-        setPrimingLoading(true);
-        try {
-          const r = await primeCardAction(card.id);
-          setPrimingQuestion(r.question);
-          setPhase("priming");
-        } finally {
-          setPrimingLoading(false);
+      setGradeError(null);
+      try {
+        const durationMs = Date.now() - startTime;
+        const result = await gradeCardAction({
+          cardId: currentCard.id,
+          grade,
+          durationMs,
+        });
+        setLastInterval(result.intervalDays);
+
+        if (grade === "wrong") {
+          // Re-queue once per card per session (max 2 times)
+          const reCount = reReviewCounts[currentCard.id] ?? 0;
+          if (reCount < 2) {
+            setQueue((q) => [...q, currentCard]);
+            setReReviewCounts((prev) => ({
+              ...prev,
+              [currentCard.id]: reCount + 1,
+            }));
+          }
+          setPrimingLoading(true);
+          try {
+            const r = await primeCardAction(currentCard.id);
+            setPrimingQuestion(r.question);
+            setPhase("priming");
+          } finally {
+            setPrimingLoading(false);
+          }
+        } else {
+          advance();
         }
-      } else {
-        advance();
+      } catch (err) {
+        setGradeError(err instanceof Error ? err.message : "Grade failed");
       }
     },
-    [card.id, advance, startTime],
+    [currentCard, advance, startTime, reReviewCounts],
   );
 
   const requestAnalogy = useCallback(async () => {
     setAnalogyLoading(true);
     try {
-      const r = await analogyCardAction(card.id);
+      const r = await analogyCardAction(currentCard.id);
       setAnalogy(r.analogy);
       setPhase("analogy");
     } finally {
       setAnalogyLoading(false);
     }
-  }, [card.id]);
+  }, [currentCard.id]);
 
   // Keyboard shortcuts: space = flip, 1/2/3 = grade, n = next
   useEffect(() => {
@@ -117,9 +169,7 @@ export function ReviewSession({
         else if (e.key === "2") handleGrade("hard");
         else if (e.key === "3") handleGrade("right");
       } else if (
-        (phase === "priming" ||
-          phase === "revealed" ||
-          phase === "analogy") &&
+        (phase === "priming" || phase === "revealed" || phase === "analogy") &&
         e.key === "n"
       ) {
         advance();
@@ -129,25 +179,61 @@ export function ReviewSession({
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, handleGrade, advance]);
 
+  // Set the testid attribute after all mount effects have run — the keyboard
+  // handler effect (above) fires first, so the listener is attached before
+  // this runs. Pure DOM mutation keeps the react-hooks/set-state-in-effect
+  // lint rule satisfied.
+  useEffect(() => {
+    containerRef.current?.setAttribute("data-testid", "review-ready");
+  }, []);
+
   const showBackContent =
     phase === "back" || phase === "revealed" || phase === "analogy";
 
+  const dueRemaining = originalDue - Math.min(queueIdx, originalDue);
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div ref={containerRef} className="mx-auto max-w-2xl space-y-6">
       <header className="flex items-center justify-between text-sm">
         <Link
           href={`/decks/${deckId}`}
           className="text-muted-foreground hover:text-foreground"
         >
-          ← {deckTopic}
+          ← {currentCard.deckTopic ?? deckTopic}
         </Link>
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Badge variant="secondary">{remaining} due</Badge>
+          {isReReview ? (
+            <Badge variant="warning">
+              Re-check · {reReviewPending + 1} remaining
+            </Badge>
+          ) : (
+            <Badge variant="secondary">
+              {dueRemaining} due
+              {reReviewPending > 0 && ` · ${reReviewPending} re-check`}
+            </Badge>
+          )}
           <span className="font-mono">
-            rep {card.repetition} · ease {card.ease.toFixed(2)}
+            rep {currentCard.repetition} · ease {currentCard.ease.toFixed(2)}
           </span>
         </div>
       </header>
+
+      {isReReview && (
+        <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-4 py-2 text-sm text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Re-check — you missed this one earlier
+        </div>
+      )}
+
+      {gradeError && (
+        <div
+          role="alert"
+          data-testid="grade-error"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+        >
+          Could not save grade — {gradeError}
+        </div>
+      )}
 
       <Card className="min-h-[280px]">
         <CardHeader>
@@ -159,20 +245,26 @@ export function ReviewSession({
               {phase === "revealed" && "Answer revealed"}
               {phase === "analogy" && "Deeper model"}
             </span>
-            {card.referenceSection && (
+            {currentCard.referenceSection && (
               <Badge variant="outline" className="font-mono">
-                {card.referenceSection}
+                {currentCard.referenceSection}
               </Badge>
             )}
           </CardDescription>
-          <CardTitle className="text-xl leading-snug">{card.front}</CardTitle>
+          <CardTitle className="text-xl leading-snug">
+            {currentCard.front}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm leading-relaxed">
           {showBackContent && (
             <>
-              <p className="whitespace-pre-wrap text-base">{card.back}</p>
-              {card.whyItMatters && (
-                <p className="text-muted-foreground">{card.whyItMatters}</p>
+              <p className="whitespace-pre-wrap text-base">
+                {currentCard.back}
+              </p>
+              {currentCard.whyItMatters && (
+                <p className="text-muted-foreground">
+                  {currentCard.whyItMatters}
+                </p>
               )}
             </>
           )}
@@ -290,13 +382,8 @@ export function ReviewSession({
               onClick={advance}
               variant="secondary"
               className="w-full"
-              disabled={isPending}
             >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <SkipForward className="h-4 w-4" />
-              )}
+              <SkipForward className="h-4 w-4" />
               Next card <kbd className="ml-1 text-xs opacity-70">n</kbd>
               <span className="ml-3 text-xs text-muted-foreground">
                 next review in {lastInterval}d
