@@ -54,8 +54,22 @@ export async function POST(
     return Response.json({ ok: false, error: message }, { status: 500 });
   }
 
-  await db.transaction(async (tx) => {
-    await tx
+  // neon-http driver does not support transactions; use sequential writes.
+  // Insert cards first so that if it fails the deck stays in "failed" state
+  // (status update to "ready" only happens after cards are committed).
+  try {
+    await db.insert(cards).values(
+      generated.payload.cards.map((c, idx) => ({
+        deckId: id,
+        front: c.front,
+        back: c.back,
+        whyItMatters: c.whyItMatters,
+        referenceSection: c.referenceSection,
+        orderIdx: idx,
+      })),
+    );
+
+    await db
       .update(decks)
       .set({
         status: "ready",
@@ -69,18 +83,14 @@ export async function POST(
         updatedAt: new Date(),
       })
       .where(eq(decks.id, id));
-
-    await tx.insert(cards).values(
-      generated.payload.cards.map((c, idx) => ({
-        deckId: id,
-        front: c.front,
-        back: c.back,
-        whyItMatters: c.whyItMatters,
-        referenceSection: c.referenceSection,
-        orderIdx: idx,
-      })),
-    );
-  });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown write error";
+    await db
+      .update(decks)
+      .set({ status: "failed", generationError: message })
+      .where(eq(decks.id, id));
+    return Response.json({ ok: false, error: message }, { status: 500 });
+  }
 
   return Response.json({ ok: true });
 }

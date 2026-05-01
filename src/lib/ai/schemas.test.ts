@@ -17,13 +17,13 @@ describe("FlashcardSchema", () => {
     expect(FlashcardSchema.parse(validCard)).toEqual(validCard);
   });
 
-  it("rejects too-short front", () => {
+  it("accepts short strings (length enforced by prompt, not schema)", () => {
     const r = FlashcardSchema.safeParse({ ...validCard, front: "hi" });
-    expect(r.success).toBe(false);
+    expect(r.success).toBe(true);
   });
 
-  it("rejects too-short back", () => {
-    const r = FlashcardSchema.safeParse({ ...validCard, back: "" });
+  it("rejects missing required fields", () => {
+    const r = FlashcardSchema.safeParse({ front: "What is SM-2?" });
     expect(r.success).toBe(false);
   });
 });
@@ -46,12 +46,9 @@ describe("DeckPayloadSchema", () => {
     expect(DeckPayloadSchema.parse(payload)).toEqual(payload);
   });
 
-  it("rejects an empty cards array", () => {
-    const r = DeckPayloadSchema.safeParse({
-      ...payload,
-      cards: [],
-    });
-    expect(r.success).toBe(false);
+  it("accepts empty arrays (counts enforced by prompt, not schema)", () => {
+    const r = DeckPayloadSchema.safeParse({ ...payload, cards: [], mnemonics: [] });
+    expect(r.success).toBe(true);
   });
 
   it("accepts more than 20 cards (max enforced by prompt, not schema)", () => {
@@ -62,13 +59,13 @@ describe("DeckPayloadSchema", () => {
     expect(r.success).toBe(true);
   });
 
-  it("rejects a tiny mermaid string", () => {
+  it("accepts a short mermaid string (length enforced by prompt, not schema)", () => {
     const r = DeckPayloadSchema.safeParse({ ...payload, mermaid: "short" });
-    expect(r.success).toBe(false);
+    expect(r.success).toBe(true);
   });
 
-  it("requires at least one mnemonic", () => {
-    const r = DeckPayloadSchema.safeParse({ ...payload, mnemonics: [] });
+  it("rejects missing required fields", () => {
+    const r = DeckPayloadSchema.safeParse({ mermaid: "flowchart TD\n  A --> B" });
     expect(r.success).toBe(false);
   });
 });
