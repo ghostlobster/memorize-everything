@@ -1,19 +1,20 @@
 import { z } from "zod";
 
+// Note: min/max numeric constraints on strings and arrays are intentionally
+// omitted here. The Anthropic API rejects minLength > 1 and minItems > 1 in
+// structured-output schemas. Quality enforcement lives in the prompt instead.
+
 export const FlashcardSchema = z.object({
   front: z
     .string()
-    .min(6)
     .describe("Question or concept prompt shown on the front of the card."),
   back: z
     .string()
-    .min(6)
     .describe(
       "Concise answer shown on the back. 1-3 sentences. No markdown headers.",
     ),
   whyItMatters: z
     .string()
-    .min(6)
     .describe(
       "A single sentence starting with 'Why it matters:' explaining the practical or conceptual significance.",
     ),
@@ -43,17 +44,14 @@ export type Interleaving = z.infer<typeof InterleavingSchema>;
 export const DeckPayloadSchema = z.object({
   mermaid: z
     .string()
-    .min(20)
     .describe(
       "Mermaid.js flowchart syntax for the knowledge graph. Must start with 'flowchart' or 'graph'. Do NOT wrap in markdown code fences. Wrap every node label in double quotes (e.g., A[\"label\"], B{\"label\"}).",
     ),
   cards: z
     .array(FlashcardSchema)
-    .min(8)
     .describe("High-quality flashcards covering the core concepts (8–20 cards)."),
   mnemonics: z
     .array(MnemonicSchema)
-    .min(1)
     .describe("Memory devices for dense lists or technical vocabulary (1–5 devices)."),
   interleaving: InterleavingSchema.describe(
     "A related tangent topic for cross-domain retention.",
