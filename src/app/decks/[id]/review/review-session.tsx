@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -80,8 +80,9 @@ export function ReviewSession({
   const [primingLoading, setPrimingLoading] = useState(false);
   const [analogyLoading, setAnalogyLoading] = useState(false);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
-  // Set after the first effects flush so E2E tests can wait for full hydration.
-  const [effectsReady, setEffectsReady] = useState(false);
+  // Ref for the root element; used to set a testid attribute imperatively
+  // after effects run (avoids the react-hooks/set-state-in-effect lint rule).
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const resetCardState = useCallback(() => {
     setPhase("front");
@@ -169,10 +170,10 @@ export function ReviewSession({
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, handleGrade, advance]);
 
-  // Runs after every effects flush; the attribute it sets is a stable
-  // signal that the keyboard handler above is wired up.
+  // Set the testid attribute imperatively after effects flush — the DOM
+  // manipulation is the intended side-effect, with no state update involved.
   useEffect(() => {
-    setEffectsReady(true);
+    containerRef.current?.setAttribute("data-testid", "review-ready");
   }, []);
 
   const showBackContent =
@@ -181,10 +182,7 @@ export function ReviewSession({
   const dueRemaining = originalDue - Math.min(queueIdx, originalDue);
 
   return (
-    <div
-      className="mx-auto max-w-2xl space-y-6"
-      {...(effectsReady ? { "data-testid": "review-ready" } : {})}
-    >
+    <div ref={containerRef} className="mx-auto max-w-2xl space-y-6">
       <header className="flex items-center justify-between text-sm">
         <Link
           href={`/decks/${deckId}`}
