@@ -66,9 +66,11 @@ export function ReviewSession({
   const [queueIdx, setQueueIdx] = useState(0);
   const [reReviewCounts, setReReviewCounts] = useState<Record<string, number>>({});
   const [startTime, setStartTime] = useState(() => Date.now());
+  // Snapshot at session start; not derived from prop so RSC soft-refreshes
+  // (triggered by revalidatePath in gradeCardAction) don't change it mid-session.
+  const [originalDue] = useState(initialQueue.length);
 
   const currentCard = queue[queueIdx];
-  const originalDue = initialQueue.length;
   const isReReview = (reReviewCounts[currentCard?.id] ?? 0) > 0;
   const reReviewPending = queue
     .slice(queueIdx + 1)
@@ -80,8 +82,10 @@ export function ReviewSession({
   const [primingLoading, setPrimingLoading] = useState(false);
   const [analogyLoading, setAnalogyLoading] = useState(false);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
-  // Ref for the root element; used to set a testid attribute imperatively
-  // after effects run (avoids the react-hooks/set-state-in-effect lint rule).
+  const [gradeError, setGradeError] = useState<string | null>(null);
+  // Ref used to set data-testid imperatively after mount effects run.
+  // (Satisfies the react-hooks/set-state-in-effect lint rule — pure DOM
+  // mutation, no cascading React render.)
   const containerRef = useRef<HTMLDivElement>(null);
 
   const resetCardState = useCallback(() => {
@@ -104,34 +108,39 @@ export function ReviewSession({
 
   const handleGrade = useCallback(
     async (grade: Grade) => {
-      const durationMs = Date.now() - startTime;
-      const result = await gradeCardAction({
-        cardId: currentCard.id,
-        grade,
-        durationMs,
-      });
-      setLastInterval(result.intervalDays);
+      setGradeError(null);
+      try {
+        const durationMs = Date.now() - startTime;
+        const result = await gradeCardAction({
+          cardId: currentCard.id,
+          grade,
+          durationMs,
+        });
+        setLastInterval(result.intervalDays);
 
-      if (grade === "wrong") {
-        // Re-queue once per card per session (max 2 times)
-        const reCount = reReviewCounts[currentCard.id] ?? 0;
-        if (reCount < 2) {
-          setQueue((q) => [...q, currentCard]);
-          setReReviewCounts((prev) => ({
-            ...prev,
-            [currentCard.id]: reCount + 1,
-          }));
+        if (grade === "wrong") {
+          // Re-queue once per card per session (max 2 times)
+          const reCount = reReviewCounts[currentCard.id] ?? 0;
+          if (reCount < 2) {
+            setQueue((q) => [...q, currentCard]);
+            setReReviewCounts((prev) => ({
+              ...prev,
+              [currentCard.id]: reCount + 1,
+            }));
+          }
+          setPrimingLoading(true);
+          try {
+            const r = await primeCardAction(currentCard.id);
+            setPrimingQuestion(r.question);
+            setPhase("priming");
+          } finally {
+            setPrimingLoading(false);
+          }
+        } else {
+          advance();
         }
-        setPrimingLoading(true);
-        try {
-          const r = await primeCardAction(currentCard.id);
-          setPrimingQuestion(r.question);
-          setPhase("priming");
-        } finally {
-          setPrimingLoading(false);
-        }
-      } else {
-        advance();
+      } catch (err) {
+        setGradeError(err instanceof Error ? err.message : "Grade failed");
       }
     },
     [currentCard, advance, startTime, reReviewCounts],
@@ -170,8 +179,10 @@ export function ReviewSession({
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, handleGrade, advance]);
 
-  // Set the testid attribute imperatively after effects flush — the DOM
-  // manipulation is the intended side-effect, with no state update involved.
+  // Set the testid attribute after all mount effects have run — the keyboard
+  // handler effect (above) fires first, so the listener is attached before
+  // this runs. Pure DOM mutation keeps the react-hooks/set-state-in-effect
+  // lint rule satisfied.
   useEffect(() => {
     containerRef.current?.setAttribute("data-testid", "review-ready");
   }, []);
@@ -211,6 +222,16 @@ export function ReviewSession({
         <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-4 py-2 text-sm text-warning">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           Re-check — you missed this one earlier
+        </div>
+      )}
+
+      {gradeError && (
+        <div
+          role="alert"
+          data-testid="grade-error"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+        >
+          Could not save grade — {gradeError}
         </div>
       )}
 

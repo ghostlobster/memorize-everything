@@ -30,6 +30,10 @@ async function logPageState(page: import("@playwright/test").Page, label: string
 
 test.describe("authenticated golden path", () => {
   test("deck view → review → grade Right advances to next card", async ({ page }) => {
+    // Extend timeout: gradeCardAction uses pglite which is slower than Neon
+    // in CI; 60 s gives comfortable headroom for 3+ DB round-trips.
+    test.setTimeout(60_000);
+
     // First visit sets the cookie's domain context, then plant the
     // seeded session cookie so middleware lets us past /decks/*.
     await page.goto("/");
@@ -105,9 +109,12 @@ test.describe("authenticated golden path", () => {
     await expect(page.getByText(firstCard.back)).toBeVisible();
     await page.keyboard.press("3");
 
-    // gradeCardAction writes to the DB then client advances the queue;
-    // allow up to 15 s so slow CI pglite I/O doesn't flake here.
-    await expect(page.getByText(secondCard.front)).toBeVisible({ timeout: 15_000 });
+    // gradeCardAction writes to the DB then client advances the queue.
+    // Allow up to 30 s: pglite in CI does auth lookup + card update +
+    // review insert sequentially and can be slow on shared runners.
+    // On failure Playwright captures a screenshot; any [data-testid=grade-error]
+    // banner visible there indicates a server-action exception.
+    await expect(page.getByText(secondCard.front)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("4 due")).toBeVisible();
   });
 });
