@@ -31,11 +31,21 @@ export async function generateDeck(
 ): Promise<GeneratedDeck> {
   const profile = resolveModel("strong", override);
 
+  // Pass 1 uses the fast model for the same provider — prose markdown doesn't
+  // need heavy reasoning and is the main source of latency. Fall back to the
+  // strong profile if the provider has no registered fast model.
+  let pass1Profile = profile;
+  try {
+    pass1Profile = resolveModel("fast", { provider: profile.provider });
+  } catch {
+    // no fast model for this provider; keep the strong profile
+  }
+
   // Anthropic models don't support explicit temperature in structured output mode
   const supportsTemperature = profile.provider !== "anthropic";
 
   const pass1 = await generateText({
-    model: profile.model(),
+    model: pass1Profile.model(),
     system: KNOWLEDGE_ARCHITECT_SYSTEM,
     prompt: `${buildTopicPrompt(req)}\n\n${PHASE1_INSTRUCTIONS}`,
     ...(supportsTemperature && { temperature: 0.4 }),

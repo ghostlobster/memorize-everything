@@ -6,7 +6,7 @@ import { generateDeck } from "@/lib/ai/generate-deck";
 import type { ProviderId } from "@/lib/ai/models";
 import type { TopicRequest } from "@/lib/ai/schemas";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(
   _req: Request,
