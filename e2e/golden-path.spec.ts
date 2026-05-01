@@ -87,6 +87,11 @@ test.describe("authenticated golden path", () => {
     await expect(page).toHaveURL(new RegExp(`/decks/${E2E_DECK_ID}/review$`));
     await page.getByRole("link", { name: /start full review/i }).click();
     await expect(page).toHaveURL(new RegExp(`/decks/${E2E_DECK_ID}/review.*mode=full`));
+    // Client-side navigation is faster than a full page load, so React's
+    // useEffect (which wires up keyboard shortcuts) may not have run by
+    // the time Playwright finds the DOM content.  Wait for the network to
+    // be idle — this reliably follows React's commit + effects flush.
+    await page.waitForLoadState("networkidle");
 
     const firstCard = E2E_CARDS[0]!;
     const secondCard = E2E_CARDS[1]!;
