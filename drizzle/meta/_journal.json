@@ -15,6 +15,13 @@
       "when": 1777587972673,
       "tag": "0001_hesitant_nekra",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777596602891,
+      "tag": "0002_great_stryfe",
+      "breakpoints": true
     }
   ]
 }
