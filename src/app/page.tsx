@@ -10,10 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { listUserDecks } from "@/server/actions/decks";
-import { formatRelative } from "@/lib/utils";
-import { DeckActions } from "@/components/decks/deck-actions";
+import { DeckSelectorGrid } from "@/components/decks/deck-selector-grid";
 
 export default async function HomePage() {
   const user = await getUser();
@@ -113,51 +111,19 @@ export default async function HomePage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {decks.map((deck) => (
-            <Card key={deck.id} className="relative h-full transition-colors hover:border-primary/50 hover:bg-accent/40">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <CardTitle className="leading-snug">
-                    <Link
-                      href={`/decks/${deck.id}`}
-                      className="after:absolute after:inset-0"
-                    >
-                      {deck.topic}
-                    </Link>
-                  </CardTitle>
-                  <div className="relative z-10 flex shrink-0 flex-wrap items-center gap-1">
-                    {deck.status === "generating" && (
-                      <Badge variant="secondary">Generating…</Badge>
-                    )}
-                    {deck.status === "failed" && (
-                      <Badge variant="destructive">Failed</Badge>
-                    )}
-                    {Number(deck.dueCount) > 0 && (
-                      <Badge variant="warning">
-                        {Number(deck.dueCount)} due
-                      </Badge>
-                    )}
-                    <DeckActions deckId={deck.id} isArchived={false} />
-                  </div>
-                </div>
-                <CardDescription className="flex flex-wrap gap-2 pt-1">
-                  <Badge variant="secondary">{deck.level}</Badge>
-                  <Badge variant="secondary">{deck.goal}</Badge>
-                  <Badge variant="outline">
-                    {Number(deck.cardCount)} cards
-                  </Badge>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Created {formatRelative(deck.createdAt)}</span>
-                {deck.modelId && (
-                  <span className="font-mono">{deck.modelId}</span>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <DeckSelectorGrid
+          decks={decks.map((d) => ({
+            id: d.id,
+            topic: d.topic,
+            level: d.level,
+            goal: d.goal,
+            status: d.status,
+            createdAt: d.createdAt,
+            modelId: d.modelId,
+            cardCount: Number(d.cardCount),
+            dueCount: Number(d.dueCount ?? 0),
+          }))}
+        />
       )}
     </div>
   );

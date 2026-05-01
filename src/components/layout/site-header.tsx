@@ -20,6 +20,18 @@ export async function SiteHeader() {
             Due today
           </Link>
           <Link
+            href="/progress"
+            className="rounded-md px-3 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            Progress
+          </Link>
+          <Link
+            href="/calendar"
+            className="rounded-md px-3 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            Calendar
+          </Link>
+          <Link
             href="/decks/new"
             className="rounded-md px-3 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
