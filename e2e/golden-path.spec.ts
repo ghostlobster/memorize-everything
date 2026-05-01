@@ -87,11 +87,12 @@ test.describe("authenticated golden path", () => {
     await expect(page).toHaveURL(new RegExp(`/decks/${E2E_DECK_ID}/review$`));
     await page.getByRole("link", { name: /start full review/i }).click();
     await expect(page).toHaveURL(new RegExp(`/decks/${E2E_DECK_ID}/review.*mode=full`));
-    // Client-side navigation is faster than a full page load, so React's
-    // useEffect (which wires up keyboard shortcuts) may not have run by
-    // the time Playwright finds the DOM content.  Wait for the network to
-    // be idle — this reliably follows React's commit + effects flush.
-    await page.waitForLoadState("networkidle");
+    // Client-side navigation is fast, so React's useEffect (which wires up
+    // keyboard shortcuts) may not have run by the time Playwright finds the
+    // SSR-painted DOM.  ReviewSession sets data-testid="review-ready" inside
+    // a useEffect that fires after the keyboard handler, giving us a reliable
+    // signal that the component is fully hydrated and interactive.
+    await page.locator('[data-testid="review-ready"]').waitFor({ timeout: 15_000 });
 
     const firstCard = E2E_CARDS[0]!;
     const secondCard = E2E_CARDS[1]!;
@@ -104,7 +105,9 @@ test.describe("authenticated golden path", () => {
     await expect(page.getByText(firstCard.back)).toBeVisible();
     await page.keyboard.press("3");
 
-    await expect(page.getByText(secondCard.front)).toBeVisible();
+    // gradeCardAction writes to the DB then client advances the queue;
+    // allow up to 15 s so slow CI pglite I/O doesn't flake here.
+    await expect(page.getByText(secondCard.front)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("4 due")).toBeVisible();
   });
 });

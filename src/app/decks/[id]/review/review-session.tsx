@@ -80,6 +80,8 @@ export function ReviewSession({
   const [primingLoading, setPrimingLoading] = useState(false);
   const [analogyLoading, setAnalogyLoading] = useState(false);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
+  // Set after the first effects flush so E2E tests can wait for full hydration.
+  const [effectsReady, setEffectsReady] = useState(false);
 
   const resetCardState = useCallback(() => {
     setPhase("front");
@@ -167,13 +169,22 @@ export function ReviewSession({
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, handleGrade, advance]);
 
+  // Runs after every effects flush; the attribute it sets is a stable
+  // signal that the keyboard handler above is wired up.
+  useEffect(() => {
+    setEffectsReady(true);
+  }, []);
+
   const showBackContent =
     phase === "back" || phase === "revealed" || phase === "analogy";
 
   const dueRemaining = originalDue - Math.min(queueIdx, originalDue);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div
+      className="mx-auto max-w-2xl space-y-6"
+      {...(effectsReady ? { "data-testid": "review-ready" } : {})}
+    >
       <header className="flex items-center justify-between text-sm">
         <Link
           href={`/decks/${deckId}`}
