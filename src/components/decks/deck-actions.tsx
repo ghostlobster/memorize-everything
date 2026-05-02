@@ -1,13 +1,23 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MoreHorizontal, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import {
+  MoreHorizontal,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+  FolderInput,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -25,13 +35,22 @@ import {
   archiveDeckAction,
   unarchiveDeckAction,
 } from "@/server/actions/decks";
+import { moveDeckToGroupAction } from "@/server/actions/groups";
+import type { GroupSummary } from "@/server/actions/groups";
 
 interface DeckActionsProps {
   deckId: string;
   isArchived: boolean;
+  currentGroupId?: string | null;
+  allGroups?: GroupSummary[];
 }
 
-export function DeckActions({ deckId, isArchived }: DeckActionsProps) {
+export function DeckActions({
+  deckId,
+  isArchived,
+  currentGroupId = null,
+  allGroups = [],
+}: DeckActionsProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -49,6 +68,10 @@ export function DeckActions({ deckId, isArchived }: DeckActionsProps) {
 
   function handleDeleteConfirm() {
     startTransition(() => deleteDeckAction(deckId));
+  }
+
+  function handleMoveToGroup(groupId: string | null) {
+    startTransition(() => moveDeckToGroupAction(deckId, groupId));
   }
 
   return (
@@ -80,6 +103,45 @@ export function DeckActions({ deckId, isArchived }: DeckActionsProps) {
               <Archive className="h-4 w-4" />
               Archive
             </DropdownMenuItem>
+          )}
+          {allGroups.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <FolderInput className="h-4 w-4" />
+                Move to group
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {allGroups.map((g) => (
+                  <DropdownMenuItem
+                    key={g.id}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleMoveToGroup(g.id);
+                    }}
+                  >
+                    {currentGroupId === g.id && (
+                      <Check className="h-3.5 w-3.5 mr-1 shrink-0" />
+                    )}
+                    {g.name}
+                  </DropdownMenuItem>
+                ))}
+                {currentGroupId !== null && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleMoveToGroup(null);
+                      }}
+                    >
+                      Remove from group
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
