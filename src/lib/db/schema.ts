@@ -8,6 +8,7 @@ import {
   pgEnum,
   jsonb,
   numeric,
+  boolean,
   index,
 } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "next-auth/adapters";
@@ -151,6 +152,8 @@ export const cards = pgTable(
     intervalDays: integer("intervalDays").notNull().default(0),
     dueAt: timestamp("dueAt", { mode: "date" }).notNull().defaultNow(),
     lastReviewedAt: timestamp("lastReviewedAt", { mode: "date" }),
+    suspended: boolean("suspended").notNull().default(false),
+    userNotes: text("userNotes"),
     createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
   },
   (c) => ({

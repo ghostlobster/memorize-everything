@@ -8,7 +8,7 @@ import { decks, cards, suggestions, reviews } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/require-user";
 import { primeCard, analogyForCard } from "@/lib/ai/prime-card";
 import { schedule } from "@/lib/sr/sm2";
-import { TopicRequestSchema } from "@/lib/ai/schemas";
+import { TopicRequestSchema, UpdateCardSchema } from "@/lib/ai/schemas";
 import type { Grade } from "@/lib/db/schema";
 
 export async function createDeckAction(
@@ -195,6 +195,70 @@ export async function analogyCardAction(cardId: string) {
   return { analogy };
 }
 
+export async function updateCardAction(
+  cardId: string,
+  raw: {
+    front: string;
+    back: string;
+    whyItMatters?: string;
+    referenceSection?: string;
+    userNotes?: string;
+  },
+): Promise<void> {
+  const user = await requireUser();
+
+  const parsed = UpdateCardSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error(`Invalid card data: ${parsed.error.issues.map((i) => i.message).join("; ")}`);
+  }
+
+  const card = await db.query.cards.findFirst({
+    where: eq(cards.id, cardId),
+    with: { deck: true },
+  });
+  if (!card) throw new Error("Card not found");
+  if (card.deck.userId !== user.id) throw new Error("Not authorized");
+
+  await db
+    .update(cards)
+    .set({
+      front: parsed.data.front,
+      back: parsed.data.back,
+      whyItMatters: parsed.data.whyItMatters ?? null,
+      referenceSection: parsed.data.referenceSection ?? null,
+      userNotes: parsed.data.userNotes ?? null,
+    })
+    .where(eq(cards.id, cardId));
+
+  revalidatePath(`/decks/${card.deckId}`);
+}
+
+export async function suspendCardAction(cardId: string): Promise<void> {
+  const user = await requireUser();
+  const card = await db.query.cards.findFirst({
+    where: eq(cards.id, cardId),
+    with: { deck: true },
+  });
+  if (!card) throw new Error("Card not found");
+  if (card.deck.userId !== user.id) throw new Error("Not authorized");
+
+  await db.update(cards).set({ suspended: true }).where(eq(cards.id, cardId));
+  revalidatePath(`/decks/${card.deckId}`);
+}
+
+export async function unsuspendCardAction(cardId: string): Promise<void> {
+  const user = await requireUser();
+  const card = await db.query.cards.findFirst({
+    where: eq(cards.id, cardId),
+    with: { deck: true },
+  });
+  if (!card) throw new Error("Card not found");
+  if (card.deck.userId !== user.id) throw new Error("Not authorized");
+
+  await db.update(cards).set({ suspended: false }).where(eq(cards.id, cardId));
+  revalidatePath(`/decks/${card.deckId}`);
+}
+
 // -----------------------------------------------------------------------------
 // Query helpers (read-only; called from Server Components)
 // -----------------------------------------------------------------------------
@@ -261,7 +325,14 @@ export async function listDueCardsForUser(userId: string, limit = 100) {
     })
     .from(cards)
     .innerJoin(decks, eq(decks.id, cards.deckId))
-    .where(and(eq(decks.userId, userId), ne(decks.status, "archived"), lte(cards.dueAt, new Date())))
+    .where(
+      and(
+        eq(decks.userId, userId),
+        ne(decks.status, "archived"),
+        lte(cards.dueAt, new Date()),
+        eq(cards.suspended, false),
+      ),
+    )
     .orderBy(asc(cards.dueAt))
     .limit(limit);
 }
@@ -275,7 +346,9 @@ export async function nextDueCardInDeck(deckId: string, userId: string) {
   const [next] = await db
     .select()
     .from(cards)
-    .where(and(eq(cards.deckId, deckId), lte(cards.dueAt, new Date())))
+    .where(
+      and(eq(cards.deckId, deckId), lte(cards.dueAt, new Date()), eq(cards.suspended, false)),
+    )
     .orderBy(asc(cards.dueAt), asc(cards.orderIdx))
     .limit(1);
   return next ?? null;
@@ -293,6 +366,7 @@ export async function listDueCardsForDecks(userId: string, deckIds: string[]) {
       repetition: cards.repetition,
       ease: cards.ease,
       state: cards.state,
+      userNotes: cards.userNotes,
       deckTopic: decks.topic,
     })
     .from(cards)
@@ -303,6 +377,7 @@ export async function listDueCardsForDecks(userId: string, deckIds: string[]) {
         ne(decks.status, "archived"),
         inArray(cards.deckId, deckIds),
         lte(cards.dueAt, new Date()),
+        eq(cards.suspended, false),
       ),
     )
     .orderBy(asc(cards.dueAt));

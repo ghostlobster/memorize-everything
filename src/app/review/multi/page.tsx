@@ -98,6 +98,7 @@ export default async function MultiDeckReviewPage({
     back: c.back,
     whyItMatters: c.whyItMatters,
     referenceSection: c.referenceSection,
+    userNotes: c.userNotes,
     repetition: c.repetition,
     ease: Number(c.ease),
     deckTopic: c.deckTopic,

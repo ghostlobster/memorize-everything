@@ -70,3 +70,12 @@ export const TopicRequestSchema = z.object({
   scope: z.string().max(500).optional(),
 });
 export type TopicRequest = z.infer<typeof TopicRequestSchema>;
+
+export const UpdateCardSchema = z.object({
+  front: z.string().min(1).max(1000),
+  back: z.string().min(1).max(2000),
+  whyItMatters: z.string().max(500).optional(),
+  referenceSection: z.string().max(50).optional(),
+  userNotes: z.string().max(1000).optional(),
+});
+export type UpdateCard = z.infer<typeof UpdateCardSchema>;
