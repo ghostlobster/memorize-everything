@@ -256,6 +256,39 @@ For migrations:
   Security → Advisories → Report a vulnerability) rather than a public
   issue.
 
+## Architecture decisions
+
+### No Edge middleware (`middleware.ts`)
+
+This repo does **not** ship a `middleware.ts`. The file existed briefly to
+short-circuit unauthenticated requests to `/decks` and `/review` at the Edge,
+but it was removed when Next 16 made it unshippable:
+
+1. The middleware called `auth()` from `src/lib/auth/config.ts`, which pulls
+   in `DrizzleAdapter` → `@neondatabase/serverless`, using `node:crypto` /
+   `node:fs`. Next 16's stricter Edge bundler rejects these Node built-ins.
+2. A pure cookie-presence fallback worked locally but Vercel's Edge packager
+   still rejected the deploy.
+3. Auth.js v5's split-config pattern (edge-safe config without the adapter)
+   requires the JWT session strategy. This project uses the `database`
+   strategy, so middleware can't read sessions there regardless.
+4. Next 16's `runtime: 'nodejs'` for middleware is gated behind
+   `experimental.nodeMiddleware`, which the current pinned version rejects
+   as an unrecognised key.
+
+**Correctness is preserved** — page-level guards in
+`src/lib/auth/require-user.ts` (called from every protected Server Component)
+redirect unauthenticated users before any data is fetched. The only loss is a
+small UX optimisation: a single extra render frame fires before the redirect
+instead of the request being short-circuited at the Edge.
+
+Revisit when either:
+- `experimental.nodeMiddleware` stabilises in a Next 16.x release, **or**
+- Auth.js ships a stable v5 with a clear edge-safe split-config path for
+  database sessions.
+
+Refs #79.
+
 ## Code of conduct
 
 Be kind. Assume good intent. Critique code, not people.
