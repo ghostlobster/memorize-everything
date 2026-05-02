@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { listUserDecks } from "@/server/actions/decks";
+import { listUserGroups } from "@/server/actions/groups";
 import { DeckSelectorGrid } from "@/components/decks/deck-selector-grid";
 
 export default async function HomePage() {
@@ -60,7 +61,10 @@ export default async function HomePage() {
     );
   }
 
-  const decks = await listUserDecks(user.id);
+  const [decks, groups] = await Promise.all([
+    listUserDecks(user.id),
+    listUserGroups(user.id),
+  ]);
   const totalDue = decks.reduce((n, d) => n + Number(d.dueCount ?? 0), 0);
 
   return (
@@ -120,9 +124,11 @@ export default async function HomePage() {
             status: d.status,
             createdAt: d.createdAt,
             modelId: d.modelId,
+            groupId: d.groupId ?? null,
             cardCount: Number(d.cardCount),
             dueCount: Number(d.dueCount ?? 0),
           }))}
+          groups={groups}
         />
       )}
     </div>

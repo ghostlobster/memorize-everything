@@ -2,9 +2,35 @@ import Link from "next/link";
 import { BrainCircuit } from "lucide-react";
 import { auth, signIn, signOut } from "@/lib/auth/config";
 import { Button } from "@/components/ui/button";
+import { MobileNav } from "@/components/layout/mobile-nav";
 
 export async function SiteHeader() {
   const session = await auth();
+
+  const authForm = session?.user ? (
+    <form
+      action={async () => {
+        "use server";
+        await signOut({ redirectTo: "/" });
+      }}
+    >
+      <Button type="submit" variant="ghost" size="sm" className="w-full justify-start">
+        Sign out
+      </Button>
+    </form>
+  ) : (
+    <form
+      action={async () => {
+        "use server";
+        await signIn("github", { redirectTo: "/" });
+      }}
+    >
+      <Button type="submit" size="sm" className="w-full">
+        Sign in
+      </Button>
+    </form>
+  );
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4">
@@ -12,7 +38,9 @@ export async function SiteHeader() {
           <BrainCircuit className="h-5 w-5 text-primary" />
           <span>Memorize Everything</span>
         </Link>
-        <nav className="flex items-center gap-2 text-sm">
+
+        {/* Desktop nav — hidden on small screens */}
+        <nav className="hidden items-center gap-2 text-sm sm:flex">
           <Link
             href="/review"
             className="rounded-md px-3 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -61,6 +89,11 @@ export async function SiteHeader() {
             </form>
           )}
         </nav>
+
+        {/* Mobile hamburger — visible only on small screens */}
+        <div className="sm:hidden">
+          <MobileNav authSlot={authForm} />
+        </div>
       </div>
     </header>
   );

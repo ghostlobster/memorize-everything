@@ -210,6 +210,7 @@ export async function listUserDecks(userId: string) {
       createdAt: decks.createdAt,
       modelProvider: decks.modelProvider,
       modelId: decks.modelId,
+      groupId: decks.groupId,
       cardCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id})`,
       dueCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id} and ${cards.dueAt} <= now())`,
     })

@@ -86,6 +86,16 @@ export const suggestionKindEnum = pgEnum("suggestion_kind", [
 export const cardStateEnum = pgEnum("card_state", ["new", "learning", "review"]);
 export const deckStatusEnum = pgEnum("deck_status", ["generating", "ready", "failed", "archived"]);
 
+export const deckGroups = pgTable("deck_group", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+});
+
 export const decks = pgTable(
   "deck",
   {
@@ -93,6 +103,9 @@ export const decks = pgTable(
     userId: text("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    groupId: uuid("groupId").references(() => deckGroups.id, {
+      onDelete: "set null",
+    }),
     topic: text("topic").notNull(),
     level: text("level").notNull().default("intermediate"),
     goal: text("goal").notNull().default("mastery"),
@@ -197,10 +210,17 @@ export const suggestions = pgTable(
 export const usersRelations = relations(users, ({ many }) => ({
   decks: many(decks),
   reviews: many(reviews),
+  groups: many(deckGroups),
+}));
+
+export const deckGroupsRelations = relations(deckGroups, ({ one, many }) => ({
+  user: one(users, { fields: [deckGroups.userId], references: [users.id] }),
+  decks: many(decks),
 }));
 
 export const decksRelations = relations(decks, ({ one, many }) => ({
   user: one(users, { fields: [decks.userId], references: [users.id] }),
+  group: one(deckGroups, { fields: [decks.groupId], references: [deckGroups.id] }),
   cards: many(cards),
   suggestions: many(suggestions),
 }));
@@ -217,6 +237,8 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
 }));
 
 export type User = typeof users.$inferSelect;
+export type DeckGroup = typeof deckGroups.$inferSelect;
+export type InsertDeckGroup = typeof deckGroups.$inferInsert;
 export type Deck = typeof decks.$inferSelect;
 export type Card = typeof cards.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
