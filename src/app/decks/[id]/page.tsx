@@ -14,9 +14,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { MarkdownView } from "@/components/markdown/markdown-view";
 import { MermaidView } from "@/components/mermaid/mermaid-view";
-import { formatRelative } from "@/lib/utils";
 import { GeneratingDeckView } from "./generating-view";
 import { DeckActions } from "@/components/decks/deck-actions";
+import { CardGrid } from "@/components/cards/card-grid";
 
 export default async function DeckPage({
   params,
@@ -56,8 +56,9 @@ export default async function DeckPage({
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   const dueCount = deck.cards.filter(
-    (c) => c.dueAt.getTime() <= now,
+    (c) => !c.suspended && c.dueAt.getTime() <= now,
   ).length;
+  const suspendedCount = deck.cards.filter((c) => c.suspended).length;
 
   return (
     <div className="space-y-10">
@@ -81,6 +82,9 @@ export default async function DeckPage({
               )}
               {!isArchived && dueCount > 0 && (
                 <Badge variant="warning">{dueCount} due</Badge>
+              )}
+              {suspendedCount > 0 && (
+                <Badge variant="secondary">{suspendedCount} suspended</Badge>
               )}
             </div>
           </div>
@@ -118,41 +122,7 @@ export default async function DeckPage({
           icon={<ListChecks className="h-4 w-4" />}
           title={`Phase 3 — Flashcards (${deck.cards.length})`}
         />
-        <div className="grid gap-3 md:grid-cols-2">
-          {deck.cards.map((c, idx) => (
-            <Card key={c.id} className="h-full">
-              <CardHeader>
-                <CardDescription className="flex items-center justify-between text-xs">
-                  <span>Card {idx + 1}</span>
-                  {c.referenceSection && (
-                    <Badge variant="outline" className="font-mono">
-                      {c.referenceSection}
-                    </Badge>
-                  )}
-                </CardDescription>
-                <CardTitle className="text-base leading-snug">
-                  {c.front}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 pt-0 text-sm">
-                <p>{c.back}</p>
-                {c.whyItMatters && (
-                  <p className="text-muted-foreground">{c.whyItMatters}</p>
-                )}
-                <div className="flex gap-3 pt-2 text-xs text-muted-foreground">
-                  <span>rep {c.repetition}</span>
-                  <span>ease {Number(c.ease).toFixed(2)}</span>
-                  <span>
-                    next{" "}
-                    {c.dueAt.getTime() <= now
-                      ? "now"
-                      : formatRelative(c.dueAt)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <CardGrid cards={deck.cards} now={now} />
       </section>
 
       {(deck.mnemonics?.length || deck.interleaving) && (

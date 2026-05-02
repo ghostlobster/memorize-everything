@@ -38,12 +38,15 @@ export default async function DeckReviewPage({
       back: cards.back,
       whyItMatters: cards.whyItMatters,
       referenceSection: cards.referenceSection,
+      userNotes: cards.userNotes,
       repetition: cards.repetition,
       ease: cards.ease,
       state: cards.state,
     })
     .from(cards)
-    .where(and(eq(cards.deckId, id), lte(cards.dueAt, new Date())))
+    .where(
+      and(eq(cards.deckId, id), lte(cards.dueAt, new Date()), eq(cards.suspended, false)),
+    )
     .orderBy(asc(cards.dueAt), asc(cards.orderIdx));
 
   if (allDue.length === 0) {
@@ -96,6 +99,7 @@ export default async function DeckReviewPage({
     back: c.back,
     whyItMatters: c.whyItMatters,
     referenceSection: c.referenceSection,
+    userNotes: c.userNotes,
     repetition: c.repetition,
     ease: Number(c.ease),
   }));

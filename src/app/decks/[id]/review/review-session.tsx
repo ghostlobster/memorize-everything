@@ -27,6 +27,7 @@ import {
   gradeCardAction,
   primeCardAction,
 } from "@/server/actions/decks";
+import { SessionSummary } from "./session-summary";
 import type { Grade } from "@/lib/db/schema";
 
 export interface ReviewCard {
@@ -35,6 +36,7 @@ export interface ReviewCard {
   back: string;
   whyItMatters: string | null;
   referenceSection: string | null;
+  userNotes?: string | null;
   repetition: number;
   ease: number;
   deckTopic?: string; // populated in multi-deck sessions
@@ -70,6 +72,12 @@ export function ReviewSession({
   // (triggered by revalidatePath in gradeCardAction) don't change it mid-session.
   const [originalDue] = useState(initialQueue.length);
 
+  // Session-level tracking for the summary screen
+  const [sessionStartTime] = useState(() => Date.now());
+  const [gradeLog, setGradeLog] = useState<Array<{ grade: Grade }>>([]);
+  const [showSummary, setShowSummary] = useState(false);
+  const [sessionDurationMs, setSessionDurationMs] = useState(0);
+
   const currentCard = queue[queueIdx];
   const isReReview = (reReviewCounts[currentCard?.id] ?? 0) > 0;
   const reReviewPending = queue
@@ -98,13 +106,14 @@ export function ReviewSession({
   const advance = useCallback(() => {
     const nextIdx = queueIdx + 1;
     if (nextIdx >= queue.length) {
-      router.push(exitHref ?? `/decks/${deckId}`);
+      setSessionDurationMs(Date.now() - sessionStartTime);
+      setShowSummary(true);
       return;
     }
     setQueueIdx(nextIdx);
     setStartTime(Date.now());
     resetCardState();
-  }, [queueIdx, queue.length, deckId, exitHref, router, resetCardState]);
+  }, [queueIdx, queue.length, sessionStartTime, resetCardState]);
 
   const handleGrade = useCallback(
     async (grade: Grade) => {
@@ -117,6 +126,7 @@ export function ReviewSession({
           durationMs,
         });
         setLastInterval(result.intervalDays);
+        setGradeLog((prev) => [...prev, { grade }]);
 
         if (grade === "wrong") {
           // Re-queue once per card per session (max 2 times)
@@ -187,10 +197,29 @@ export function ReviewSession({
     containerRef.current?.setAttribute("data-testid", "review-ready");
   }, []);
 
+  // Show summary when all cards are done
+  if (showSummary) {
+    return (
+      <SessionSummary
+        deckId={deckId}
+        exitHref={exitHref}
+        gradeLog={gradeLog}
+        durationMs={sessionDurationMs}
+        originalQueueSize={originalDue}
+      />
+    );
+  }
+
   const showBackContent =
     phase === "back" || phase === "revealed" || phase === "analogy";
 
   const dueRemaining = originalDue - Math.min(queueIdx, originalDue);
+
+  // Redirect fallback if somehow the queue is empty (shouldn't happen in normal flow)
+  if (!currentCard) {
+    router.push(exitHref ?? `/decks/${deckId}`);
+    return null;
+  }
 
   return (
     <div ref={containerRef} className="mx-auto max-w-2xl space-y-6">
@@ -265,6 +294,12 @@ export function ReviewSession({
                 <p className="text-muted-foreground">
                   {currentCard.whyItMatters}
                 </p>
+              )}
+              {currentCard.userNotes && (
+                <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                  <span className="font-medium">My note: </span>
+                  <span className="text-muted-foreground">{currentCard.userNotes}</span>
+                </div>
               )}
             </>
           )}

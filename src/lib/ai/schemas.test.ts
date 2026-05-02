@@ -3,6 +3,7 @@ import {
   DeckPayloadSchema,
   FlashcardSchema,
   TopicRequestSchema,
+  UpdateCardSchema,
 } from "./schemas";
 
 const validCard = {
@@ -105,6 +106,50 @@ describe("TopicRequestSchema", () => {
       topic: "X",
       level: "guru",
     });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe("UpdateCardSchema", () => {
+  const valid = {
+    front: "What is X?",
+    back: "X is a thing.",
+    whyItMatters: "Why it matters: it enables Y.",
+    referenceSection: "§1.2",
+    userNotes: "Remember: X ≈ Y in context Z",
+  };
+
+  it("accepts a fully populated update", () => {
+    expect(UpdateCardSchema.parse(valid)).toEqual(valid);
+  });
+
+  it("accepts minimal update (only required fields)", () => {
+    const r = UpdateCardSchema.safeParse({ front: "Q?", back: "A." });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects empty front", () => {
+    const r = UpdateCardSchema.safeParse({ ...valid, front: "" });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects empty back", () => {
+    const r = UpdateCardSchema.safeParse({ ...valid, back: "" });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects front exceeding max length", () => {
+    const r = UpdateCardSchema.safeParse({ ...valid, front: "x".repeat(1001) });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects back exceeding max length", () => {
+    const r = UpdateCardSchema.safeParse({ ...valid, back: "x".repeat(2001) });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects userNotes exceeding max length", () => {
+    const r = UpdateCardSchema.safeParse({ ...valid, userNotes: "x".repeat(1001) });
     expect(r.success).toBe(false);
   });
 });
