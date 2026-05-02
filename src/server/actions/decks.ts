@@ -275,8 +275,8 @@ export async function listUserDecks(userId: string) {
       modelProvider: decks.modelProvider,
       modelId: decks.modelId,
       groupId: decks.groupId,
-      cardCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id})`,
-      dueCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id} and ${cards.dueAt} <= now())`,
+      cardCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id} and ${cards.suspended} = false)`,
+      dueCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id} and ${cards.dueAt} <= now() and ${cards.suspended} = false)`,
     })
     .from(decks)
     .where(and(eq(decks.userId, userId), ne(decks.status, "archived")))
@@ -295,7 +295,7 @@ export async function listArchivedDecks(userId: string) {
       modelProvider: decks.modelProvider,
       modelId: decks.modelId,
       groupId: decks.groupId,
-      cardCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id})`,
+      cardCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id} and ${cards.suspended} = false)`,
       dueCount: sql<number>`0`,
     })
     .from(decks)

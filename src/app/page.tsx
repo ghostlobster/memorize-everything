@@ -127,7 +127,7 @@ export default async function HomePage() {
             createdAt: d.createdAt,
             modelId: d.modelId,
             groupId: d.groupId ?? null,
-            cardCount: Number(d.cardCount),
+            cardCount: Number(d.cardCount ?? 0),
             dueCount: Number(d.dueCount ?? 0),
           }))}
           groups={groups}
@@ -144,7 +144,7 @@ export default async function HomePage() {
           createdAt: d.createdAt,
           modelId: d.modelId,
           groupId: d.groupId ?? null,
-          cardCount: Number(d.cardCount),
+          cardCount: Number(d.cardCount ?? 0),
           dueCount: 0,
         }))}
       />

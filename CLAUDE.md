@@ -62,21 +62,34 @@ src/
     decks/[id]/             # Phase 1–4 rendered view
     decks/[id]/review/      # Focused review UI (keyboard 1/2/3)
     review/                 # Global due queue
+    review/multi/           # Multi-deck session queue
+    calendar/               # Review calendar heatmap
+    progress/               # Progress stats page
     api/auth/[...nextauth]/ # Auth.js route
+    api/decks/[id]/generate/# Non-blocking generation endpoint (maxDuration=300s)
   components/
+    cards/                  # CardGrid + CardEditSheet
+    decks/                  # DeckSelectorGrid, DeckGroupSection, DeckActions,
+                            # ArchivedDeckList
     layout/site-header.tsx
     markdown/markdown-view.tsx    # react-markdown + remark-math + KaTeX
     mermaid/mermaid-view.tsx      # Client-only Mermaid (dynamic import)
-    ui/*                          # Primitives (button, card, etc.)
+    review/                 # ReviewModeSelect and session UI primitives
+    ui/*                    # Primitives (button, card, badge, etc.)
   lib/
     ai/                     # Model registry, prompts, Zod contracts,
                             # generate-deck.ts, prime-card.ts,
                             # mermaid.ts (fence stripper)
     auth/                   # Auth.js config + handlers + require-user
-    db/                     # Drizzle schema + Neon client
+    db/                     # Drizzle schema, Neon client, pglite client
+                            # driver-neon.ts / driver-pglite.ts / client.ts
     sr/sm2.ts               # Spaced-repetition scheduler (tested)
-    utils.ts, env.ts
-  server/actions/decks.ts   # Server Actions (create/grade/prime/analogy)
+    utils.ts, env.ts, calendar.ts, progress.ts
+  server/actions/
+    decks.ts                # Server Actions (create/grade/prime/analogy/
+                            # suspend/unsuspend/edit card)
+    groups.ts               # Folder (group) CRUD actions
+    progress.ts             # Progress aggregation
   types/                    # d.ts augmentations
 drizzle/                    # Generated migrations (commit these!)
 e2e/                        # Playwright specs
@@ -94,7 +107,8 @@ scripts/smoke-deck.ts       # End-to-end generation, no UI
   They're thin network wrappers. Test-worthy helpers go into
   `mermaid.ts`, `models.ts`, etc.
 - **Server Actions live in `src/server/actions/`, not `src/app/api/`.**
-  Only Auth.js uses the `api/` route.
+  Only Auth.js uses the `api/` route. Deck generation uses an API route
+  (`api/decks/[id]/generate`) because it needs `maxDuration = 300`.
 - **Ease factor clamp is `[1.3, 2.8]`.** Changing these constants
   requires updating `src/lib/sr/sm2.test.ts`.
 - **Stub env vars for `next build`.** Build imports the Auth.js
@@ -103,6 +117,21 @@ scripts/smoke-deck.ts       # End-to-end generation, no UI
 - **`pnpm` only.** `package.json` pins the manager via the
   `packageManager` field; using `npm install` will corrupt the
   lockfile.
+- **Always filter `suspended = false` in card queries.** Suspended
+  cards must be excluded from review queues, due counts, and the active
+  `cardCount` shown on the home page. All queries in
+  `src/server/actions/decks.ts` that surface card counts to the user
+  already do this — do not remove the filter when modifying those
+  queries.
+- **Drizzle uses `casing: "camelCase"` on both drivers.** DB column
+  names are camelCase (e.g. `deckId`, `dueAt`). Both `driver-neon.ts`
+  and `driver-pglite.ts` set `casing: "camelCase"` in the Drizzle
+  config. Keep this consistent when adding new drivers or queries.
+- **Decks can be organised into named groups (folders).** The
+  `deck_group` table holds groups; `deck.groupId` is a nullable FK.
+  Ungrouped decks have `groupId = null`. The home page component
+  `DeckGroupSection` aggregates `cardCount` and `dueCount` from the
+  `decks` prop — pass the correct subset, not the full deck list.
 
 ## Preferred commands
 
