@@ -87,8 +87,13 @@ export default async function DeckReviewPage({
     );
   }
 
+  // mode may be "full", "critical", "full-write", "critical-write", "full-mc", "critical-mc"
+  const baseMode = mode?.replace(/-write$/, "").replace(/-mc$/, "") ?? "full";
+  const initialWriteMode = mode?.endsWith("-write") ?? false;
+  const initialMcMode = mode?.endsWith("-mc") ?? false;
+
   const initialQueue = (
-    mode === "critical"
+    baseMode === "critical"
       ? allDue
           .filter((c) => c.state === "learning" || Number(c.ease) <= 1.6)
           .sort((a, b) => Number(a.ease) - Number(b.ease))
@@ -135,6 +140,8 @@ export default async function DeckReviewPage({
       deckId={deck.id}
       deckTopic={deck.topic}
       initialQueue={initialQueue}
+      initialWriteMode={initialWriteMode}
+      initialMcMode={initialMcMode}
     />
   );
 }

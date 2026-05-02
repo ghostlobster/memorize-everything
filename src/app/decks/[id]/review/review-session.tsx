@@ -5,12 +5,17 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
+  CheckCircle2,
   Loader2,
+  Mic,
+  MicOff,
+  PenLine,
   RotateCcw,
   SkipForward,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
+  XCircle,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +29,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   analogyCardAction,
+  evaluateAnswerAction,
   gradeCardAction,
+  multipleChoiceAction,
   primeCardAction,
 } from "@/server/actions/decks";
 import { SessionSummary } from "./session-summary";
@@ -43,23 +50,41 @@ export interface ReviewCard {
 }
 
 // Flow:
-//   front  → user attempts recall, reveals back
-//   back   → user grades. Right/Hard → advance. Wrong → priming.
-//   priming→ user tries again from the new angle; can reveal answer (→ revealed)
-//            or request analogy (→ analogy).
-//   revealed / analogy → user clicks Next.
-type Phase = "front" | "back" | "priming" | "revealed" | "analogy";
+//   front     → user attempts recall, reveals back (or enters write/MC mode)
+//   writing   → user has typed/spoken a draft; "Reveal answer" shows back
+//   back      → user grades. Right/Hard → advance. Wrong → priming.
+//   mc_loading→ fetching distractors from AI
+//   mc        → user picks one of 4 options
+//   priming   → user tries again from new angle; can reveal (→ revealed) or analogy
+//   revealed  / analogy → user clicks Next
+type Phase =
+  | "front"
+  | "writing"
+  | "back"
+  | "mc_loading"
+  | "mc"
+  | "priming"
+  | "revealed"
+  | "analogy";
+
+type AiVerdict = "correct" | "partial" | "wrong";
+
+const MC_LABELS = ["A", "B", "C", "D"];
 
 export function ReviewSession({
   deckId,
   deckTopic,
   initialQueue,
   exitHref,
+  initialWriteMode = false,
+  initialMcMode = false,
 }: {
   deckId: string;
   deckTopic: string;
   initialQueue: ReviewCard[];
   exitHref?: string;
+  initialWriteMode?: boolean;
+  initialMcMode?: boolean;
 }) {
   const router = useRouter();
 
@@ -78,6 +103,10 @@ export function ReviewSession({
   const [showSummary, setShowSummary] = useState(false);
   const [sessionDurationMs, setSessionDurationMs] = useState(0);
 
+  // Mode toggles — persist across cards, switchable mid-session
+  const [writeMode, setWriteMode] = useState(initialWriteMode);
+  const [mcMode, setMcMode] = useState(initialMcMode && !initialWriteMode);
+
   const currentCard = queue[queueIdx];
   const isReReview = (reReviewCounts[currentCard?.id] ?? 0) > 0;
   const reReviewPending = queue
@@ -91,9 +120,26 @@ export function ReviewSession({
   const [analogyLoading, setAnalogyLoading] = useState(false);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
   const [gradeError, setGradeError] = useState<string | null>(null);
-  // Ref used to set data-testid imperatively after mount effects run.
-  // (Satisfies the react-hooks/set-state-in-effect lint rule — pure DOM
-  // mutation, no cascading React render.)
+
+  // Write mode state
+  const [writeDraft, setWriteDraft] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+
+  // AI evaluation state
+  const [aiEvalResult, setAiEvalResult] = useState<AiVerdict | null>(null);
+  const [aiEvalFeedback, setAiEvalFeedback] = useState<string | null>(null);
+  const [aiEvalLoading, setAiEvalLoading] = useState(false);
+  const [aiEvalCorrected, setAiEvalCorrected] = useState(false);
+
+  // Multiple choice state
+  const [mcOptions, setMcOptions] = useState<string[]>([]);
+  const [mcCorrectIndex, setMcCorrectIndex] = useState(0);
+  const [mcSelected, setMcSelected] = useState<number | null>(null);
+  const [mcLoading, setMcLoading] = useState(false);
+
+  // Ref for testid — set imperatively post-mount to satisfy hooks/purity lint
   const containerRef = useRef<HTMLDivElement>(null);
 
   const resetCardState = useCallback(() => {
@@ -101,6 +147,13 @@ export function ReviewSession({
     setPrimingQuestion(null);
     setAnalogy(null);
     setLastInterval(null);
+    setWriteDraft("");
+    setIsListening(false);
+    setAiEvalResult(null);
+    setAiEvalFeedback(null);
+    setAiEvalCorrected(false);
+    setMcOptions([]);
+    setMcSelected(null);
   }, []);
 
   const advance = useCallback(() => {
@@ -167,17 +220,110 @@ export function ReviewSession({
     }
   }, [currentCard.id]);
 
-  // Keyboard shortcuts: space = flip, 1/2/3 = grade, n = next
+  const loadMultipleChoice = useCallback(async () => {
+    setMcLoading(true);
+    setPhase("mc_loading");
+    try {
+      const r = await multipleChoiceAction(currentCard.id);
+      setMcOptions(r.options);
+      setMcCorrectIndex(r.correctIndex);
+      setPhase("mc");
+    } catch (err) {
+      setGradeError(err instanceof Error ? err.message : "Could not load choices");
+      setPhase("front");
+    } finally {
+      setMcLoading(false);
+    }
+  }, [currentCard.id]);
+
+  const handleMcSelect = useCallback(
+    async (idx: number) => {
+      if (mcSelected !== null) return; // already selected
+      setMcSelected(idx);
+      const grade: Grade = idx === mcCorrectIndex ? "right" : "wrong";
+      await handleGrade(grade);
+    },
+    [mcSelected, mcCorrectIndex, handleGrade],
+  );
+
+  const requestAiEval = useCallback(async () => {
+    if (!writeDraft.trim()) return;
+    setAiEvalLoading(true);
+    try {
+      const r = await evaluateAnswerAction(currentCard.id, writeDraft);
+      setAiEvalResult(r.verdict);
+      setAiEvalFeedback(r.feedback);
+      setAiEvalCorrected(false);
+    } catch {
+      // non-fatal — just hide the eval UI
+    } finally {
+      setAiEvalLoading(false);
+    }
+  }, [currentCard.id, writeDraft]);
+
+  const correctAiEval = useCallback((verdict: AiVerdict) => {
+    setAiEvalResult(verdict);
+    setAiEvalCorrected(true);
+  }, []);
+
+  const startListening = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    const SpeechRec = win.SpeechRecognition ?? win.webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rec = new SpeechRec() as any;
+    rec.continuous = true;
+    rec.interimResults = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (e: any) => {
+      const transcript = Array.from(e.results as ArrayLike<SpeechRecognitionResult>)
+        .map((r) => r[0]?.transcript ?? "")
+        .join(" ");
+      setWriteDraft((prev) => (prev ? prev + " " + transcript : transcript));
+    };
+    rec.onend = () => setIsListening(false);
+    rec.start();
+    recognitionRef.current = rec;
+    setIsListening(true);
+  }, []);
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setIsListening(false);
+  }, []);
+
+  // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.target && (e.target as HTMLElement).tagName === "TEXTAREA") return;
-      if (phase === "front" && (e.key === " " || e.key === "Enter")) {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+
+      if (phase === "front") {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          if (mcMode) {
+            void loadMultipleChoice();
+          } else if (writeMode) {
+            setPhase("writing");
+          } else {
+            setPhase("back");
+          }
+        }
+      } else if (phase === "writing" && (e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault();
         setPhase("back");
       } else if (phase === "back") {
-        if (e.key === "1") handleGrade("wrong");
-        else if (e.key === "2") handleGrade("hard");
-        else if (e.key === "3") handleGrade("right");
+        if (e.key === "1") void handleGrade("wrong");
+        else if (e.key === "2") void handleGrade("hard");
+        else if (e.key === "3") void handleGrade("right");
+      } else if (phase === "mc") {
+        if (e.key === "1") void handleMcSelect(0);
+        else if (e.key === "2") void handleMcSelect(1);
+        else if (e.key === "3") void handleMcSelect(2);
+        else if (e.key === "4") void handleMcSelect(3);
       } else if (
         (phase === "priming" || phase === "revealed" || phase === "analogy") &&
         e.key === "n"
@@ -187,12 +333,8 @@ export function ReviewSession({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [phase, handleGrade, advance]);
+  }, [phase, handleGrade, handleMcSelect, loadMultipleChoice, advance, writeMode, mcMode]);
 
-  // Set the testid attribute after all mount effects have run — the keyboard
-  // handler effect (above) fires first, so the listener is attached before
-  // this runs. Pure DOM mutation keeps the react-hooks/set-state-in-effect
-  // lint rule satisfied.
   useEffect(() => {
     containerRef.current?.setAttribute("data-testid", "review-ready");
   }, []);
@@ -214,6 +356,12 @@ export function ReviewSession({
     phase === "back" || phase === "revealed" || phase === "analogy";
 
   const dueRemaining = originalDue - Math.min(queueIdx, originalDue);
+  const cardNumber = Math.min(queueIdx + 1, originalDue);
+  const progressFraction = originalDue > 0 ? cardNumber / originalDue : 0;
+
+  const hasSpeechApi =
+    typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
   // Redirect fallback if somehow the queue is empty (shouldn't happen in normal flow)
   if (!currentCard) {
@@ -231,6 +379,37 @@ export function ReviewSession({
           ← {currentCard.deckTopic ?? deckTopic}
         </Link>
         <div className="flex items-center gap-2 text-muted-foreground">
+          {/* Mode toggles */}
+          <button
+            onClick={() => {
+              setWriteMode((w) => !w);
+              if (!writeMode) setMcMode(false);
+            }}
+            className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${
+              writeMode
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:border-foreground/40"
+            }`}
+            title="Toggle write mode"
+          >
+            <PenLine className="h-3 w-3" />
+            Write
+          </button>
+          <button
+            onClick={() => {
+              setMcMode((m) => !m);
+              if (!mcMode) setWriteMode(false);
+            }}
+            className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${
+              mcMode
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:border-foreground/40"
+            }`}
+            title="Toggle multiple-choice mode"
+          >
+            A/B/C
+          </button>
+
           {isReReview ? (
             <Badge variant="warning">
               Re-check · {reReviewPending + 1} remaining
@@ -241,11 +420,21 @@ export function ReviewSession({
               {reReviewPending > 0 && ` · ${reReviewPending} re-check`}
             </Badge>
           )}
+          <span className="font-mono text-xs">
+            {cardNumber} / {originalDue}
+          </span>
           <span className="font-mono">
             rep {currentCard.repetition} · ease {currentCard.ease.toFixed(2)}
           </span>
         </div>
       </header>
+
+      <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-1 rounded-full bg-primary transition-all duration-300"
+          style={{ width: `${progressFraction * 100}%` }}
+        />
+      </div>
 
       {isReReview && (
         <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-4 py-2 text-sm text-warning">
@@ -268,8 +457,11 @@ export function ReviewSession({
         <CardHeader>
           <CardDescription className="flex items-center justify-between">
             <span>
-              {phase === "front" && "Front — try to recall"}
+              {phase === "front" && (writeMode ? "Front — write your recall" : mcMode ? "Front — load choices to answer" : "Front — try to recall")}
+              {phase === "writing" && "Your answer — reveal when ready"}
               {phase === "back" && "Back — how did you do?"}
+              {phase === "mc_loading" && "Loading choices…"}
+              {phase === "mc" && "Pick the correct answer"}
               {phase === "priming" && "Priming question — try again"}
               {phase === "revealed" && "Answer revealed"}
               {phase === "analogy" && "Deeper model"}
@@ -285,6 +477,30 @@ export function ReviewSession({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm leading-relaxed">
+          {/* Write mode input in front phase */}
+          {phase === "writing" && (
+            <div className="space-y-2">
+              <textarea
+                autoFocus
+                value={writeDraft}
+                onChange={(e) => setWriteDraft(e.target.value)}
+                placeholder="Type your answer here…"
+                className="min-h-[100px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <p className="text-xs text-muted-foreground">
+                Cmd+Enter to reveal answer
+              </p>
+            </div>
+          )}
+
+          {/* User draft shown above correct answer */}
+          {showBackContent && writeDraft && (
+            <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your answer</span>
+              <p className="mt-1 whitespace-pre-wrap text-foreground/80">{writeDraft}</p>
+            </div>
+          )}
+
           {showBackContent && (
             <>
               <p className="whitespace-pre-wrap text-base">
@@ -302,6 +518,89 @@ export function ReviewSession({
                 </div>
               )}
             </>
+          )}
+
+          {/* AI evaluation result */}
+          {showBackContent && aiEvalResult && (
+            <div className={`rounded-md border p-3 text-sm ${
+              aiEvalResult === "correct"
+                ? "border-success/40 bg-success/10"
+                : aiEvalResult === "partial"
+                  ? "border-warning/40 bg-warning/10"
+                  : "border-destructive/40 bg-destructive/10"
+            }`}>
+              <div className="flex items-center gap-2 flex-wrap">
+                {aiEvalResult === "correct" && <CheckCircle2 className="h-4 w-4 text-success shrink-0" />}
+                {aiEvalResult === "partial" && <RotateCcw className="h-4 w-4 text-warning shrink-0" />}
+                {aiEvalResult === "wrong" && <XCircle className="h-4 w-4 text-destructive shrink-0" />}
+                <span className={`font-medium capitalize ${
+                  aiEvalResult === "correct" ? "text-success" : aiEvalResult === "partial" ? "text-warning" : "text-destructive"
+                }`}>
+                  {aiEvalResult}
+                </span>
+                {aiEvalCorrected && (
+                  <span className="text-xs text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
+                    Manually corrected
+                  </span>
+                )}
+              </div>
+              {aiEvalFeedback && (
+                <p className="mt-1 text-muted-foreground">{aiEvalFeedback}</p>
+              )}
+              {/* Correction buttons */}
+              <div className="mt-2 flex gap-1.5 flex-wrap">
+                <span className="text-xs text-muted-foreground self-center">Disagree?</span>
+                {(["correct", "partial", "wrong"] as AiVerdict[])
+                  .filter((v) => v !== aiEvalResult)
+                  .map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => correctAiEval(v)}
+                      className="text-xs border border-border rounded px-1.5 py-0.5 hover:bg-muted capitalize"
+                    >
+                      Actually {v}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* MC loading spinner */}
+          {phase === "mc_loading" && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating choices…
+            </div>
+          )}
+
+          {/* MC options */}
+          {phase === "mc" && mcOptions.length > 0 && (
+            <div className="space-y-2">
+              {mcOptions.map((option, idx) => {
+                const isSelected = mcSelected === idx;
+                const isCorrect = idx === mcCorrectIndex;
+                let variant: "outline" | "success" | "destructive" = "outline";
+                if (mcSelected !== null) {
+                  if (isCorrect) variant = "success";
+                  else if (isSelected) variant = "destructive";
+                }
+                return (
+                  <Button
+                    key={idx}
+                    variant={variant}
+                    className="w-full justify-start gap-3 text-left h-auto py-2"
+                    onClick={() => void handleMcSelect(idx)}
+                    disabled={mcSelected !== null && !isSelected && !isCorrect}
+                  >
+                    <span className="shrink-0 font-mono text-xs opacity-60">
+                      {MC_LABELS[idx]}
+                    </span>
+                    <span className="whitespace-normal">{option}</span>
+                    <kbd className="ml-auto shrink-0 text-xs opacity-50">{idx + 1}</kbd>
+                  </Button>
+                );
+              })}
+            </div>
           )}
 
           {(phase === "priming" ||
@@ -330,40 +629,117 @@ export function ReviewSession({
       </Card>
 
       <div className="space-y-3">
-        {phase === "front" && (
+        {/* Front phase actions */}
+        {phase === "front" && !mcMode && !writeMode && (
           <Button onClick={() => setPhase("back")} className="w-full" size="lg">
             Show answer <kbd className="ml-2 text-xs opacity-70">space</kbd>
           </Button>
         )}
 
-        {phase === "back" && (
-          <div className="grid grid-cols-3 gap-2">
+        {phase === "front" && writeMode && (
+          <Button onClick={() => setPhase("writing")} className="w-full" size="lg">
+            <PenLine className="h-4 w-4" />
+            Write your answer <kbd className="ml-2 text-xs opacity-70">space</kbd>
+          </Button>
+        )}
+
+        {phase === "front" && !writeMode && !mcMode && null /* fallthrough handled */ }
+
+        {phase === "front" && mcMode && (
+          <Button
+            onClick={() => void loadMultipleChoice()}
+            className="w-full"
+            size="lg"
+            disabled={mcLoading}
+          >
+            {mcLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            Load choices <kbd className="ml-2 text-xs opacity-70">space</kbd>
+          </Button>
+        )}
+
+        {/* Writing phase actions */}
+        {phase === "writing" && (
+          <div className="flex gap-2">
+            {hasSpeechApi && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={isListening ? stopListening : startListening}
+                className={isListening ? "border-destructive text-destructive" : ""}
+              >
+                {isListening ? (
+                  <><MicOff className="h-4 w-4" /> Stop</>
+                ) : (
+                  <><Mic className="h-4 w-4" /> Dictate</>
+                )}
+              </Button>
+            )}
             <Button
-              variant="destructive"
-              onClick={() => handleGrade("wrong")}
-              disabled={primingLoading}
+              variant="outline"
               size="lg"
+              className="flex-1"
+              onClick={() => setPhase("back")}
             >
-              <ThumbsDown className="h-4 w-4" />
-              Wrong <kbd className="ml-1 text-xs opacity-70">1</kbd>
+              Show answer directly
             </Button>
             <Button
-              variant="warning"
-              onClick={() => handleGrade("hard")}
               size="lg"
+              className="flex-1"
+              onClick={() => setPhase("back")}
+              disabled={!writeDraft.trim()}
             >
-              <RotateCcw className="h-4 w-4" />
-              Hard <kbd className="ml-1 text-xs opacity-70">2</kbd>
-            </Button>
-            <Button
-              variant="success"
-              onClick={() => handleGrade("right")}
-              size="lg"
-            >
-              <ThumbsUp className="h-4 w-4" />
-              Right <kbd className="ml-1 text-xs opacity-70">3</kbd>
+              Reveal &amp; compare <kbd className="ml-1 text-xs opacity-70">⌘↵</kbd>
             </Button>
           </div>
+        )}
+
+        {/* Back phase actions */}
+        {phase === "back" && (
+          <>
+            {writeDraft && !aiEvalResult && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => void requestAiEval()}
+                disabled={aiEvalLoading}
+              >
+                {aiEvalLoading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Evaluating…</>
+                ) : (
+                  <><Sparkles className="h-4 w-4" /> Evaluate my answer with AI</>
+                )}
+              </Button>
+            )}
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant="destructive"
+                onClick={() => void handleGrade("wrong")}
+                disabled={primingLoading}
+                size="lg"
+              >
+                <ThumbsDown className="h-4 w-4" />
+                Wrong <kbd className="ml-1 text-xs opacity-70">1</kbd>
+              </Button>
+              <Button
+                variant="warning"
+                onClick={() => void handleGrade("hard")}
+                size="lg"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Hard <kbd className="ml-1 text-xs opacity-70">2</kbd>
+              </Button>
+              <Button
+                variant="success"
+                onClick={() => void handleGrade("right")}
+                size="lg"
+              >
+                <ThumbsUp className="h-4 w-4" />
+                Right <kbd className="ml-1 text-xs opacity-70">3</kbd>
+              </Button>
+            </div>
+          </>
         )}
 
         {phase === "priming" && (
@@ -376,7 +752,7 @@ export function ReviewSession({
               Show the answer
             </Button>
             <Button
-              onClick={requestAnalogy}
+              onClick={() => void requestAnalogy()}
               disabled={analogyLoading}
               className="flex-1"
             >
@@ -395,7 +771,7 @@ export function ReviewSession({
 
         {phase === "revealed" && (
           <Button
-            onClick={requestAnalogy}
+            onClick={() => void requestAnalogy()}
             variant="outline"
             className="w-full"
             disabled={analogyLoading}
