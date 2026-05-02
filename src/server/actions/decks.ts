@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq, ne, lte, asc, desc, sql, inArray } from "drizzle-orm";
+import { and, eq, ne, lte, asc, desc, sql, inArray, count } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { decks, cards, suggestions, reviews } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/require-user";
@@ -275,11 +275,18 @@ export async function listUserDecks(userId: string) {
       modelProvider: decks.modelProvider,
       modelId: decks.modelId,
       groupId: decks.groupId,
-      cardCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id} and ${cards.suspended} = false)`,
-      dueCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id} and ${cards.dueAt} <= now() and ${cards.suspended} = false)`,
+      cardCount: count(cards.id),
+      dueCount: count(
+        sql`case when ${cards.dueAt} <= now() then 1 end`,
+      ),
     })
     .from(decks)
+    .leftJoin(
+      cards,
+      and(eq(cards.deckId, decks.id), eq(cards.suspended, false)),
+    )
     .where(and(eq(decks.userId, userId), ne(decks.status, "archived")))
+    .groupBy(decks.id)
     .orderBy(desc(decks.createdAt));
 }
 
@@ -295,11 +302,16 @@ export async function listArchivedDecks(userId: string) {
       modelProvider: decks.modelProvider,
       modelId: decks.modelId,
       groupId: decks.groupId,
-      cardCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id} and ${cards.suspended} = false)`,
+      cardCount: count(cards.id),
       dueCount: sql<number>`0`,
     })
     .from(decks)
+    .leftJoin(
+      cards,
+      and(eq(cards.deckId, decks.id), eq(cards.suspended, false)),
+    )
     .where(and(eq(decks.userId, userId), eq(decks.status, "archived")))
+    .groupBy(decks.id)
     .orderBy(desc(decks.createdAt));
 }
 
