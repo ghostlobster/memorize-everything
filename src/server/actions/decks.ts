@@ -219,6 +219,26 @@ export async function listUserDecks(userId: string) {
     .orderBy(desc(decks.createdAt));
 }
 
+export async function listArchivedDecks(userId: string) {
+  return db
+    .select({
+      id: decks.id,
+      topic: decks.topic,
+      level: decks.level,
+      goal: decks.goal,
+      status: decks.status,
+      createdAt: decks.createdAt,
+      modelProvider: decks.modelProvider,
+      modelId: decks.modelId,
+      groupId: decks.groupId,
+      cardCount: sql<number>`(select count(*) from ${cards} where ${cards.deckId} = ${decks.id})`,
+      dueCount: sql<number>`0`,
+    })
+    .from(decks)
+    .where(and(eq(decks.userId, userId), eq(decks.status, "archived")))
+    .orderBy(desc(decks.createdAt));
+}
+
 export async function getDeckForUser(deckId: string, userId: string) {
   const deck = await db.query.decks.findFirst({
     where: and(eq(decks.id, deckId), eq(decks.userId, userId)),

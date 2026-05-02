@@ -142,7 +142,7 @@ export function DeckSelectorGrid({
   );
 }
 
-function DeckCard({
+export function DeckCard({
   deck,
   isSelected,
   allGroups,
@@ -203,7 +203,7 @@ function DeckCard({
             )}
             <DeckActions
               deckId={deck.id}
-              isArchived={false}
+              isArchived={deck.status === "archived"}
               currentGroupId={deck.groupId}
               allGroups={allGroups}
             />
@@ -218,7 +218,7 @@ function DeckCard({
       <CardContent className="flex items-center justify-between text-xs text-muted-foreground">
         <span>Created {formatRelative(deck.createdAt)}</span>
         {deck.modelId && (
-          <span className="font-mono">{deck.modelId}</span>
+          <span className="min-w-0 truncate font-mono">{deck.modelId}</span>
         )}
       </CardContent>
     </Card>
