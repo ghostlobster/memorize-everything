@@ -76,6 +76,7 @@ export function ReviewSession({
   const [sessionStartTime] = useState(() => Date.now());
   const [gradeLog, setGradeLog] = useState<Array<{ grade: Grade }>>([]);
   const [showSummary, setShowSummary] = useState(false);
+  const [sessionDurationMs, setSessionDurationMs] = useState(0);
 
   const currentCard = queue[queueIdx];
   const isReReview = (reReviewCounts[currentCard?.id] ?? 0) > 0;
@@ -105,13 +106,14 @@ export function ReviewSession({
   const advance = useCallback(() => {
     const nextIdx = queueIdx + 1;
     if (nextIdx >= queue.length) {
+      setSessionDurationMs(Date.now() - sessionStartTime);
       setShowSummary(true);
       return;
     }
     setQueueIdx(nextIdx);
     setStartTime(Date.now());
     resetCardState();
-  }, [queueIdx, queue.length, resetCardState]);
+  }, [queueIdx, queue.length, sessionStartTime, resetCardState]);
 
   const handleGrade = useCallback(
     async (grade: Grade) => {
@@ -202,7 +204,7 @@ export function ReviewSession({
         deckId={deckId}
         exitHref={exitHref}
         gradeLog={gradeLog}
-        durationMs={Date.now() - sessionStartTime}
+        durationMs={sessionDurationMs}
         originalQueueSize={originalDue}
       />
     );
