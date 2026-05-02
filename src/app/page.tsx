@@ -10,9 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { listUserDecks } from "@/server/actions/decks";
+import { listUserDecks, listArchivedDecks } from "@/server/actions/decks";
 import { listUserGroups } from "@/server/actions/groups";
 import { DeckSelectorGrid } from "@/components/decks/deck-selector-grid";
+import { ArchivedDeckList } from "@/components/decks/archived-deck-list";
 
 export default async function HomePage() {
   const user = await getUser();
@@ -61,9 +62,10 @@ export default async function HomePage() {
     );
   }
 
-  const [decks, groups] = await Promise.all([
+  const [decks, groups, archivedDecks] = await Promise.all([
     listUserDecks(user.id),
     listUserGroups(user.id),
+    listArchivedDecks(user.id),
   ]);
   const totalDue = decks.reduce((n, d) => n + Number(d.dueCount ?? 0), 0);
 
@@ -131,6 +133,21 @@ export default async function HomePage() {
           groups={groups}
         />
       )}
+
+      <ArchivedDeckList
+        decks={archivedDecks.map((d) => ({
+          id: d.id,
+          topic: d.topic,
+          level: d.level,
+          goal: d.goal,
+          status: d.status,
+          createdAt: d.createdAt,
+          modelId: d.modelId,
+          groupId: d.groupId ?? null,
+          cardCount: Number(d.cardCount),
+          dueCount: 0,
+        }))}
+      />
     </div>
   );
 }
