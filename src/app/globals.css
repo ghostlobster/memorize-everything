@@ -20,6 +20,8 @@
   --color-success-foreground: hsl(var(--success-foreground));
   --color-warning: hsl(var(--warning));
   --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
   --color-border: hsl(var(--border));
 
   --radius-lg: var(--radius);
@@ -47,6 +49,8 @@
   --success-foreground: 210 40% 98%;
   --warning: 38 92% 50%;
   --warning-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
   --border: 214 32% 91%;
   --radius: 0.5rem;
   --font-sans: "Inter", system-ui, sans-serif;
@@ -70,6 +74,8 @@
   --success-foreground: 210 40% 98%;
   --warning: 38 92% 50%;
   --warning-foreground: 222 47% 11%;
+  --popover: 222 47% 8%;
+  --popover-foreground: 210 40% 98%;
   --border: 217 33% 18%;
 }
 
