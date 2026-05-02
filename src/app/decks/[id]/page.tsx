@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Brain, Play, ListChecks, Network, Lightbulb } from "lucide-react";
+import { Brain, Headphones, Play, ListChecks, Network, Lightbulb } from "lucide-react";
 import { requireUser } from "@/lib/auth/require-user";
 import { getDeckForUser } from "@/server/actions/decks";
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,12 @@ export default async function DeckPage({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="lg">
+              <Link href={`/decks/${deck.id}/listen`}>
+                <Headphones className="h-4 w-4" />
+                Listen
+              </Link>
+            </Button>
             {!isArchived && (
               <Button asChild size="lg" disabled={dueCount === 0}>
                 <Link href={`/decks/${deck.id}/review`}>

@@ -26,6 +26,7 @@ export default defineConfig({
         "src/lib/auth/require-user.ts",
         "src/lib/ai/generate-deck.ts",
         "src/lib/ai/prime-card.ts",
+        "src/lib/ai/distractor.ts",
       ],
       thresholds: {
         lines: 70,

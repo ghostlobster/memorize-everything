@@ -86,8 +86,12 @@ export default async function MultiDeckReviewPage({
     );
   }
 
+  const baseMode = mode?.replace(/-write$/, "").replace(/-mc$/, "") ?? "full";
+  const initialWriteMode = mode?.endsWith("-write") ?? false;
+  const initialMcMode = mode?.endsWith("-mc") ?? false;
+
   const initialQueue = (
-    mode === "critical"
+    baseMode === "critical"
       ? allDue
           .filter((c) => c.state === "learning" || Number(c.ease) <= 1.6)
           .sort((a, b) => Number(a.ease) - Number(b.ease))
@@ -134,6 +138,8 @@ export default async function MultiDeckReviewPage({
       deckTopic={sessionLabel}
       initialQueue={initialQueue}
       exitHref="/"
+      initialWriteMode={initialWriteMode}
+      initialMcMode={initialMcMode}
     />
   );
 }

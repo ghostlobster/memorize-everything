@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { decks, cards, suggestions, reviews } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/require-user";
 import { primeCard, analogyForCard } from "@/lib/ai/prime-card";
+import { generateDistractors, evaluateAnswer } from "@/lib/ai/distractor";
 import { schedule } from "@/lib/sr/sm2";
 import { TopicRequestSchema, UpdateCardSchema } from "@/lib/ai/schemas";
 import type { Grade } from "@/lib/db/schema";
@@ -257,6 +258,46 @@ export async function unsuspendCardAction(cardId: string): Promise<void> {
 
   await db.update(cards).set({ suspended: false }).where(eq(cards.id, cardId));
   revalidatePath(`/decks/${card.deckId}`);
+}
+
+export async function evaluateAnswerAction(
+  cardId: string,
+  draft: string,
+): Promise<{ verdict: "correct" | "partial" | "wrong"; feedback: string }> {
+  const user = await requireUser();
+  const card = await db.query.cards.findFirst({
+    where: eq(cards.id, cardId),
+    with: { deck: true },
+  });
+  if (!card || card.deck.userId !== user.id) throw new Error("Not authorized");
+
+  return evaluateAnswer({ front: card.front, back: card.back, draft });
+}
+
+export async function multipleChoiceAction(
+  cardId: string,
+): Promise<{ options: string[]; correctIndex: number }> {
+  const user = await requireUser();
+  const card = await db.query.cards.findFirst({
+    where: eq(cards.id, cardId),
+    with: { deck: true },
+  });
+  if (!card || card.deck.userId !== user.id) throw new Error("Not authorized");
+
+  const distractors = await generateDistractors({
+    front: card.front,
+    back: card.back,
+  });
+
+  // Shuffle correct answer + 3 distractors
+  const all = [card.back, ...distractors];
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j]!, all[i]!];
+  }
+  const correctIndex = all.indexOf(card.back);
+
+  return { options: all, correctIndex };
 }
 
 // -----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ListChecks, Zap } from "lucide-react";
+import { ListChecks, PenLine, Zap } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -29,6 +29,9 @@ export function ReviewModeSelect({
   criticalHref,
 }: ReviewModeSelectProps) {
   const baseHref = `/decks/${deckId}/review`;
+  const fullBase = fullHref ?? `${baseHref}?mode=full`;
+  const critBase = criticalHref ?? `${baseHref}?mode=critical`;
+
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <header>
@@ -62,13 +65,23 @@ export function ReviewModeSelect({
               className="w-full"
             >
               {criticalCount > 0 ? (
-                <Link href={criticalHref ?? `${baseHref}?mode=critical`}>
-                  Start critical
-                </Link>
+                <Link href={critBase}>Start critical</Link>
               ) : (
                 <span>No critical cards</span>
               )}
             </Button>
+            {criticalCount > 0 && (
+              <div className="flex gap-1.5">
+                <Button asChild variant="outline" size="sm" className="flex-1 text-xs">
+                  <Link href={`${critBase}-write`}>
+                    <PenLine className="h-3 w-3" /> Write
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="flex-1 text-xs">
+                  <Link href={`${critBase}-mc`}>A/B/C</Link>
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -88,10 +101,18 @@ export function ReviewModeSelect({
               {fullCount} card{fullCount === 1 ? "" : "s"}
             </Badge>
             <Button asChild className="w-full">
-              <Link href={fullHref ?? `${baseHref}?mode=full`}>
-                Start full review
-              </Link>
+              <Link href={fullBase}>Start full review</Link>
             </Button>
+            <div className="flex gap-1.5">
+              <Button asChild variant="outline" size="sm" className="flex-1 text-xs">
+                <Link href={`${fullBase}-write`}>
+                  <PenLine className="h-3 w-3" /> Write
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="flex-1 text-xs">
+                <Link href={`${fullBase}-mc`}>A/B/C</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
