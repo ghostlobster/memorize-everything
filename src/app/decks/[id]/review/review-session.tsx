@@ -120,6 +120,7 @@ export function ReviewSession({
   const [analogyLoading, setAnalogyLoading] = useState(false);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
   const [gradeError, setGradeError] = useState<string | null>(null);
+  const [leechSuspended, setLeechSuspended] = useState(false);
 
   // Write mode state
   const [writeDraft, setWriteDraft] = useState("");
@@ -180,6 +181,14 @@ export function ReviewSession({
         });
         setLastInterval(result.intervalDays);
         setGradeLog((prev) => [...prev, { grade }]);
+
+        if (result.leechSuspended) {
+          // Card hit the leech threshold — it's now suspended. Don't re-queue;
+          // show a notice and move on.
+          setLeechSuspended(true);
+          advance();
+          return;
+        }
 
         if (grade === "wrong") {
           // Re-queue once per card per session (max 2 times)
@@ -450,6 +459,17 @@ export function ReviewSession({
           className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive"
         >
           Could not save grade — {gradeError}
+        </div>
+      )}
+
+      {leechSuspended && (
+        <div
+          role="status"
+          data-testid="leech-suspended"
+          className="flex items-center gap-2 rounded-lg border border-orange-400/40 bg-orange-400/10 px-4 py-2 text-sm text-orange-700 dark:text-orange-400"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Card suspended — too many misses. Add a note in the card editor to help it stick.
         </div>
       )}
 

@@ -157,12 +157,13 @@ BANNER
     echo ""
     jq -r '
       def esc_md: gsub("\\|"; "\\|") | gsub("`"; "\\`");
-      # First paragraph (runs between blank lines) so we get full
-      # sentences instead of whatever fits on one hard-wrapped line.
+      # First non-heading paragraph (runs between blank lines) so we get
+      # full sentences. Skips Markdown headings (lines starting with #)
+      # which are common section markers in issue templates.
       def first_paragraph:
         (.body // "")
         | split("\n\n")
-        | map(select(length > 0 and (test("^\\s*$") | not)))
+        | map(select(length > 0 and (test("^\\s*$") | not) and (test("^#+\\s") | not)))
         | (first // "");
       def truncate(n):
         if length > n then (.[0:n-1] + "…") else . end;

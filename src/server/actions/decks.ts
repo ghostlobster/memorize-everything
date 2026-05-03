@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { primeCard, analogyForCard } from "@/lib/ai/prime-card";
 import { generateDistractors, evaluateAnswer } from "@/lib/ai/distractor";
 import { schedule } from "@/lib/sr/sm2";
+import { isLeech, leechThreshold } from "@/lib/sr/leech";
 import { TopicRequestSchema, UpdateCardSchema } from "@/lib/ai/schemas";
 import type { Grade } from "@/lib/db/schema";
 
@@ -131,6 +132,23 @@ export async function gradeCardAction(input: {
     scheduledNextAt: next.nextDueAt,
   });
 
+  // Leech detection: auto-suspend if the last N grades are all "wrong".
+  const threshold = leechThreshold();
+  const recentReviews = await db
+    .select({ grade: reviews.grade })
+    .from(reviews)
+    .where(eq(reviews.cardId, card.id))
+    .orderBy(desc(reviews.reviewedAt))
+    .limit(threshold);
+  const recentGrades = recentReviews.map((r) => r.grade);
+  const leechSuspended = isLeech(recentGrades, threshold);
+  if (leechSuspended) {
+    await db
+      .update(cards)
+      .set({ suspended: true })
+      .where(eq(cards.id, card.id));
+  }
+
   revalidatePath(`/decks/${card.deckId}`);
   revalidatePath(`/decks/${card.deckId}/review`);
   revalidatePath("/review");
@@ -141,6 +159,7 @@ export async function gradeCardAction(input: {
     nextDueAt: next.nextDueAt.toISOString(),
     repetition: next.repetition,
     ease: next.ease,
+    leechSuspended,
   };
 }
 
