@@ -2,11 +2,16 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth/config";
 import { db } from "@/lib/db/client";
 import { decks, cards } from "@/lib/db/schema";
-import { generateDeck } from "@/lib/ai/generate-deck";
+import { streamDeck } from "@/lib/ai/generate-deck";
 import type { ProviderId } from "@/lib/ai/models";
 import type { TopicRequest } from "@/lib/ai/schemas";
 
 export const maxDuration = 300;
+
+const enc = new TextEncoder();
+function sseEvent(data: Record<string, unknown>): Uint8Array {
+  return enc.encode(`data: ${JSON.stringify(data)}\n\n`);
+}
 
 export async function POST(
   _req: Request,
@@ -27,7 +32,14 @@ export async function POST(
   }
 
   if (deck.status === "ready") {
-    return Response.json({ ok: true });
+    // Already done — send an immediate done event so the client can refresh.
+    const body = new ReadableStream({
+      start(ctrl) {
+        ctrl.enqueue(sseEvent({ type: "done" }));
+        ctrl.close();
+      },
+    });
+    return new Response(body, { headers: sseHeaders() });
   }
 
   const override =
@@ -42,55 +54,76 @@ export async function POST(
     scope: deck.scope ?? undefined,
   };
 
-  let generated: Awaited<ReturnType<typeof generateDeck>>;
-  try {
-    generated = await generateDeck(topicReq, override);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown generation error";
-    await db
-      .update(decks)
-      .set({ status: "failed", generationError: message })
-      .where(eq(decks.id, id));
-    return Response.json({ ok: false, error: message }, { status: 500 });
-  }
+  const body = new ReadableStream({
+    async start(ctrl) {
+      let generated: Awaited<ReturnType<typeof streamDeck>> | null = null;
+      try {
+        generated = await streamDeck(topicReq, override, (chunk) => {
+          ctrl.enqueue(sseEvent({ type: "chunk", text: chunk }));
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unknown generation error";
+        await db
+          .update(decks)
+          .set({ status: "failed", generationError: message })
+          .where(eq(decks.id, id));
+        ctrl.enqueue(sseEvent({ type: "error", message }));
+        ctrl.close();
+        return;
+      }
 
-  // neon-http driver does not support transactions; use sequential writes.
-  // Insert cards first so that if it fails the deck stays in "failed" state
-  // (status update to "ready" only happens after cards are committed).
-  try {
-    await db.insert(cards).values(
-      generated.payload.cards.map((c, idx) => ({
-        deckId: id,
-        front: c.front,
-        back: c.back,
-        whyItMatters: c.whyItMatters,
-        referenceSection: c.referenceSection,
-        orderIdx: idx,
-      })),
-    );
+      // neon-http driver does not support transactions; use sequential writes.
+      try {
+        await db.insert(cards).values(
+          generated.payload.cards.map((c, idx) => ({
+            deckId: id,
+            front: c.front,
+            back: c.back,
+            whyItMatters: c.whyItMatters,
+            referenceSection: c.referenceSection,
+            orderIdx: idx,
+          })),
+        );
 
-    await db
-      .update(decks)
-      .set({
-        status: "ready",
-        generationError: null,
-        sourceMarkdown: generated.markdown,
-        mermaidSrc: generated.payload.mermaid,
-        mnemonics: generated.payload.mnemonics,
-        interleaving: generated.payload.interleaving,
-        modelProvider: generated.modelProvider,
-        modelId: generated.modelId,
-        updatedAt: new Date(),
-      })
-      .where(eq(decks.id, id));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown write error";
-    await db
-      .update(decks)
-      .set({ status: "failed", generationError: message })
-      .where(eq(decks.id, id));
-    return Response.json({ ok: false, error: message }, { status: 500 });
-  }
+        await db
+          .update(decks)
+          .set({
+            status: "ready",
+            generationError: null,
+            sourceMarkdown: generated.markdown,
+            mermaidSrc: generated.payload.mermaid,
+            mnemonics: generated.payload.mnemonics,
+            interleaving: generated.payload.interleaving,
+            modelProvider: generated.modelProvider,
+            modelId: generated.modelId,
+            updatedAt: new Date(),
+          })
+          .where(eq(decks.id, id));
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unknown write error";
+        await db
+          .update(decks)
+          .set({ status: "failed", generationError: message })
+          .where(eq(decks.id, id));
+        ctrl.enqueue(sseEvent({ type: "error", message }));
+        ctrl.close();
+        return;
+      }
 
-  return Response.json({ ok: true });
+      ctrl.enqueue(sseEvent({ type: "done" }));
+      ctrl.close();
+    },
+  });
+
+  return new Response(body, { headers: sseHeaders() });
+}
+
+function sseHeaders(): HeadersInit {
+  return {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "X-Accel-Buffering": "no",
+  };
 }
