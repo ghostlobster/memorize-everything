@@ -9,7 +9,16 @@ import { requireUser } from "@/lib/auth/require-user";
 import { primeCard, analogyForCard } from "@/lib/ai/prime-card";
 import { generateDistractors, evaluateAnswer } from "@/lib/ai/distractor";
 import { schedule } from "@/lib/sr/sm2";
+import { scheduleFsrs } from "@/lib/sr/fsrs";
 import { isLeech, leechThreshold } from "@/lib/sr/leech";
+
+function activeSchedule(
+  ...args: Parameters<typeof schedule>
+): ReturnType<typeof schedule> {
+  return process.env.SCHEDULER === "fsrs"
+    ? scheduleFsrs(...args)
+    : schedule(...args);
+}
 import { TopicRequestSchema, UpdateCardSchema } from "@/lib/ai/schemas";
 import type { Grade } from "@/lib/db/schema";
 
@@ -104,7 +113,7 @@ export async function gradeCardAction(input: {
     intervalDays: card.intervalDays,
     ease: Number(card.ease),
   };
-  const next = schedule(prev, input.grade);
+  const next = activeSchedule(prev, input.grade);
 
   const now = new Date();
 
