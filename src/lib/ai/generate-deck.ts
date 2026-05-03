@@ -1,4 +1,4 @@
-import { generateText, generateObject, type SystemModelMessage } from "ai";
+import { generateText, generateObject, streamText, type SystemModelMessage } from "ai";
 import type { ProviderId } from "./models";
 import { resolveModel } from "./models";
 import { normalizeMermaid } from "./mermaid";
@@ -81,6 +81,63 @@ export async function generateDeck(
 
   return {
     markdown: pass1.text.trim(),
+    payload: { ...pass2.object, mermaid },
+    modelProvider: profile.provider,
+    modelId: profile.id,
+  };
+}
+
+/**
+ * Streaming variant: streams Phase 1 tokens via `onChunk`, then runs Phase 2
+ * to produce the full structured result.
+ */
+export async function streamDeck(
+  req: TopicRequest,
+  override: { provider?: ProviderId; modelId?: string } | undefined,
+  onChunk: (text: string) => void,
+): Promise<GeneratedDeck> {
+  const profile = resolveModel("strong", override);
+  let pass1Profile = profile;
+  try {
+    pass1Profile = resolveModel("fast", { provider: profile.provider });
+  } catch {
+    // no fast model for this provider
+  }
+  const supportsTemperature = profile.provider !== "anthropic";
+
+  const pass1Stream = streamText({
+    model: pass1Profile.model(),
+    system: cachedSystem(KNOWLEDGE_ARCHITECT_SYSTEM, pass1Profile.provider),
+    prompt: `${buildTopicPrompt(req)}\n\n${PHASE1_INSTRUCTIONS}`,
+    ...(supportsTemperature && { temperature: 0.4 }),
+  });
+
+  let pass1Text = "";
+  for await (const chunk of pass1Stream.textStream) {
+    pass1Text += chunk;
+    onChunk(chunk);
+  }
+
+  const pass2 = await generateObject({
+    model: profile.model(),
+    schema: DeckPayloadSchema,
+    system: cachedSystem(KNOWLEDGE_ARCHITECT_SYSTEM, profile.provider),
+    prompt: [
+      buildTopicPrompt(req),
+      "",
+      "Here is the Phase 1 markdown you already produced:",
+      "---",
+      pass1Text,
+      "---",
+      "",
+      PHASE234_INSTRUCTIONS,
+    ].join("\n"),
+    ...(supportsTemperature && { temperature: 0.3 }),
+  });
+
+  const mermaid = normalizeMermaid(pass2.object.mermaid);
+  return {
+    markdown: pass1Text.trim(),
     payload: { ...pass2.object, mermaid },
     modelProvider: profile.provider,
     modelId: profile.id,
