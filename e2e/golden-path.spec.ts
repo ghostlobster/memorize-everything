@@ -6,28 +6,6 @@ import {
   E2E_DECK_TOPIC,
 } from "./support/fixtures";
 
-/**
- * Diagnostic helper used while #19 stabilises. Logs key page state
- * to stdout (which the GitHub Actions reporter surfaces in the run
- * log) so failures don't have to be debugged blind.
- */
-async function logPageState(page: import("@playwright/test").Page, label: string) {
-  console.log(
-    `\n[diag:${label}] url=${page.url()}\n` +
-      `[diag:${label}] title=${await page.title()}\n` +
-      `[diag:${label}] cookies=${
-        (await page.context().cookies())
-          .map((c) => `${c.name}=${c.value.slice(0, 12)}…`)
-          .join("; ") || "<none>"
-      }\n` +
-      `[diag:${label}] body[0..400]=${
-        ((await page.locator("body").textContent()) ?? "")
-          .replace(/\s+/g, " ")
-          .slice(0, 400)
-      }\n`,
-  );
-}
-
 test.describe("authenticated golden path", () => {
   test("deck view → review → grade Right advances to next card", async ({ page }) => {
     // Extend timeout: gradeCardAction uses pglite which is slower than Neon
@@ -38,36 +16,9 @@ test.describe("authenticated golden path", () => {
     // seeded session cookie so middleware lets us past /decks/*.
     await page.goto("/");
     await signInAsE2EUser(page);
-    await logPageState(page, "after-cookie-plant");
-
-    // Verify the server's DB has the seeded rows BEFORE we try to
-    // navigate to a protected route. If counts are zero the seed
-    // didn't reach the server's pglite instance and no auth fix
-    // can save the spec; if counts look right the failure is
-    // downstream (cookie / Auth.js).
-    const debug = await page.request.get("/api/e2e-debug");
-    const debugBody = await debug.text();
-    console.log(
-      `[diag:db] status=${debug.status()} body=${debugBody}`,
-    );
-    // Embed the body in the assertion message so the GH Actions
-    // annotation surfaces it even when stdout doesn't reach us.
-    expect(
-      debug.status(),
-      `expected /api/e2e-debug 200; got ${debug.status()} body=${debugBody}`,
-    ).toBe(200);
-    expect(
-      debugBody,
-      `seed not reaching server; body=${debugBody}`,
-    ).toContain('"users":1');
-    expect(
-      debugBody,
-      `session row missing; body=${debugBody}`,
-    ).toContain('"sessions":1');
 
     // --- Deck view ----------------------------------------------------
     await page.goto(`/decks/${E2E_DECK_ID}`);
-    await logPageState(page, "after-deck-goto");
 
     // If middleware redirected us back to "/" the cookie did not
     // authenticate; fail loudly with the actual landing URL rather
