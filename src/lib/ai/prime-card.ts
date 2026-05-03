@@ -1,6 +1,15 @@
-import { generateText } from "ai";
+import { generateText, type SystemModelMessage } from "ai";
 import { resolveModel, type ProviderId } from "./models";
 import { PRIMING_SYSTEM, ANALOGY_SYSTEM } from "./prompts";
+
+function cachedSystem(content: string, provider: ProviderId): string | SystemModelMessage {
+  if (provider !== "anthropic") return content;
+  return {
+    role: "system",
+    content,
+    providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+  };
+}
 
 interface CardContext {
   topic: string;
@@ -17,7 +26,7 @@ export async function primeCard(
   const profile = resolveModel("fast", override);
   const { text } = await generateText({
     model: profile.model(),
-    system: PRIMING_SYSTEM,
+    system: cachedSystem(PRIMING_SYSTEM, profile.provider),
     prompt: [
       `Topic: ${card.topic}`,
       `Flashcard front: ${card.front}`,
@@ -41,7 +50,7 @@ export async function analogyForCard(
   const profile = resolveModel("fast", override);
   const { text } = await generateText({
     model: profile.model(),
-    system: ANALOGY_SYSTEM,
+    system: cachedSystem(ANALOGY_SYSTEM, profile.provider),
     prompt: [
       `Topic: ${card.topic}`,
       `Flashcard front: ${card.front}`,

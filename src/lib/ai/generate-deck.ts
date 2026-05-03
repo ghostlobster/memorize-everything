@@ -1,4 +1,4 @@
-import { generateText, generateObject } from "ai";
+import { generateText, generateObject, type SystemModelMessage } from "ai";
 import type { ProviderId } from "./models";
 import { resolveModel } from "./models";
 import { normalizeMermaid } from "./mermaid";
@@ -9,6 +9,15 @@ import {
   buildTopicPrompt,
 } from "./prompts";
 import { DeckPayloadSchema, type DeckPayload, type TopicRequest } from "./schemas";
+
+function cachedSystem(content: string, provider: ProviderId): string | SystemModelMessage {
+  if (provider !== "anthropic") return content;
+  return {
+    role: "system",
+    content,
+    providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+  };
+}
 
 export interface GeneratedDeck {
   markdown: string;
@@ -46,7 +55,7 @@ export async function generateDeck(
 
   const pass1 = await generateText({
     model: pass1Profile.model(),
-    system: KNOWLEDGE_ARCHITECT_SYSTEM,
+    system: cachedSystem(KNOWLEDGE_ARCHITECT_SYSTEM, pass1Profile.provider),
     prompt: `${buildTopicPrompt(req)}\n\n${PHASE1_INSTRUCTIONS}`,
     ...(supportsTemperature && { temperature: 0.4 }),
   });
@@ -54,7 +63,7 @@ export async function generateDeck(
   const pass2 = await generateObject({
     model: profile.model(),
     schema: DeckPayloadSchema,
-    system: KNOWLEDGE_ARCHITECT_SYSTEM,
+    system: cachedSystem(KNOWLEDGE_ARCHITECT_SYSTEM, profile.provider),
     prompt: [
       buildTopicPrompt(req),
       "",
