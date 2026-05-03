@@ -66,10 +66,6 @@ export default defineConfig({
         env: {
           DB_DRIVER: "pglite",
           PGLITE_DATA_DIR,
-          // Surface DB row counts via /api/__e2e_debug while the
-          // E2E flow stabilises (#19). Endpoint 404s when this is
-          // not "1".
-          E2E_DEBUG: "1",
           // These are stubs because DB_DRIVER=pglite takes the pglite
           // branch in client.ts; DATABASE_URL is never read. Kept set
           // so Auth.js config module-init doesn't throw.

@@ -176,7 +176,7 @@ The following must pass before merge:
 | `CI / Secret scan (gitleaks)` | ✅ |
 | `CI / PR hygiene (ticket + title)` | ✅ |
 | `Roadmap freshness / Roadmap freshness` | ✅ (only runs when the diff touches `ROADMAP.md` or `scripts/roadmap.sh`) |
-| `E2E / Golden path` | ⏳ informational for now; will be promoted to required once it runs green for 20 consecutive merges (see #19) |
+| `E2E / Golden path` | ✅ |
 
 ### Review
 
@@ -215,6 +215,7 @@ sync with the CONTRIBUTING workflow above.
     - `CI / Secret scan (gitleaks)`
     - `CI / PR hygiene (ticket + title)`
     - `Roadmap freshness / Roadmap freshness`
+    - `E2E / Golden path`
 - [x] **Require conversation resolution before merging**
 - [x] **Require signed commits** *(optional but recommended)*
 - [x] **Require linear history** (blocks merge commits — pairs with squash-merge)
