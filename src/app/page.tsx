@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { BookOpen, Plus, Sparkles, GraduationCap } from "lucide-react";
 import { getUser } from "@/lib/auth/require-user";
-import { signIn } from "@/lib/auth/config";
 import { Button } from "@/components/ui/button";
+import { SignInCard } from "@/components/auth/sign-in-card";
 import {
   Card,
   CardContent,
@@ -31,16 +31,10 @@ export default async function HomePage() {
             primes you before revealing answers.
           </p>
         </div>
-        <form
-          action={async () => {
-            "use server";
-            await signIn("github", { redirectTo: "/" });
-          }}
-        >
-          <Button size="lg" type="submit">
-            Sign in with GitHub to begin
-          </Button>
-        </form>
+        <SignInCard
+          hasGoogle={!!process.env.AUTH_GOOGLE_ID}
+          hasResend={!!process.env.AUTH_RESEND_KEY}
+        />
         <div className="grid gap-4 pt-10 md:grid-cols-3">
           <Feature
             icon={<Sparkles className="h-5 w-5" />}
