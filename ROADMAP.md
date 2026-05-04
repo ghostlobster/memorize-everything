@@ -16,9 +16,4 @@ number.
 
 ## Open issues
 
-- **[#16](https://github.com/ghostlobster/memorize-everything/issues/16)** `chore` `ci` — chore: MVP setup follow-ups (branch protection, CODEOWNERS, Vercel CD, E2E CI)
-  - Tracking issue for the manual / out-of-repo follow-ups from the initial MVP scaffold on \`claude/spaced-repetition-syst…
-- **[#20](https://github.com/ghostlobster/memorize-everything/issues/20)** `chore` `dependencies` — chore: retire legacy Dependabot PRs, track major upgrades
-  - Meta-ticket for retiring the first wave of Dependabot PRs (which all targeted the feature branch instead of \`main\`) a…
-- **[#24](https://github.com/ghostlobster/memorize-everything/issues/24)** `chore` `dx` — chore: wire Vercel ↔ Neon Marketplace integration and run first migration
-  - Split out from #16 task 5. Separate ticket so the Neon wiring has its own focused PR and does not churn the parent MVP-…
+_No open issues. Nothing pending._
