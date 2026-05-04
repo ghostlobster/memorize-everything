@@ -11,12 +11,13 @@ self-correction coach that primes you before revealing answers.
 ## Stack
 
 - **Next.js 15** App Router, React 19, TypeScript strict
-- **Auth.js v5** + GitHub OAuth (database sessions)
+- **Auth.js v5** + GitHub OAuth, Google OAuth, and Resend magic-link (database sessions)
 - **Neon Postgres** + **Drizzle ORM**
 - **Vercel AI SDK** — model-agnostic; defaults to Gemini 2.5 Pro /
-  Flash, with Anthropic Claude and OpenAI GPT swappable via env var
+  Flash, with Anthropic Claude and OpenAI GPT swappable via env var;
+  Phase 1 generation streams via SSE
 - **Tailwind CSS**, **react-markdown** + **KaTeX**, **Mermaid**
-- **SM-2** scheduler (pure, Vitest-tested) — FSRS-ready schema
+- **SM-2** scheduler (default, pure, Vitest-tested); **FSRS v5** available via `SCHEDULER=fsrs`
 
 ## Getting started
 
@@ -42,8 +43,12 @@ Open http://localhost:3000.
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth app |
 | `DEFAULT_MODEL_PROVIDER` | `google` \| `anthropic` \| `openai` |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini (default) |
-| `ANTHROPIC_API_KEY` | Optional fallback |
-| `OPENAI_API_KEY` | Optional fallback |
+| `ANTHROPIC_API_KEY` | Optional — enables Anthropic provider |
+| `OPENAI_API_KEY` | Optional — enables OpenAI provider |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Optional — enables Google OAuth |
+| `AUTH_RESEND_KEY` | Optional — enables Resend magic-link sign-in |
+| `AUTH_EMAIL_FROM` | Optional — sender address for magic-link emails |
+| `DATABASE_URL_PREVIEW` | Optional — Neon preview branch for Claude Code MCP server |
 
 `.env.local` is git-ignored. Never commit real keys.
 
@@ -111,32 +116,51 @@ commit conventions, required branch protection rules, and review rules.
 ```
 src/
   app/
-    page.tsx                       # Home (decks list / sign-in)
+    page.tsx                       # Home (deck list grouped by folder / sign-in)
     decks/
       new/                         # Topic form + Server Action + loading UI
-      [id]/                        # Deck view: Phase 1–4
-        review/                    # Focused review + self-correction loop
-    review/page.tsx                # Global due queue
-    api/auth/[...nextauth]/        # Auth.js routes
+      [id]/                        # Deck view: Phase 1–4 with streaming generation
+        review/                    # Per-deck review session + summary
+        listen/                    # Podcast / TTS mode
+    review/
+      page.tsx                     # Global due queue
+      multi/                       # Multi-deck cross-session
+    calendar/                      # Monthly review heatmap
+    progress/                      # Stats dashboard (streak, per-deck, upcoming)
+    api/
+      auth/[...nextauth]/          # Auth.js routes
+      decks/[id]/generate/         # SSE stream endpoint for Phase 1 markdown
   components/
-    layout/site-header.tsx
+    layout/                        # site-header, mobile-nav
     markdown/markdown-view.tsx     # react-markdown + remark-math + KaTeX
     mermaid/mermaid-view.tsx       # Client-only Mermaid renderer
+    audio/podcast-player.tsx       # Podcast / TTS player
+    cards/                         # card-grid, card-edit-sheet
+    decks/                         # deck-group-section, deck-actions, deck-selector-grid
+    review/                        # review-mode-select
     ui/*                           # shadcn-style primitives
   lib/
     ai/
       models.ts                    # Provider registry (google/anthropic/openai)
       schemas.ts                   # Zod = tool schemas = DB types
       prompts.ts                   # Knowledge Architect system prompt
-      generate-deck.ts             # Two-pass: markdown + structured object
+      generate-deck.ts             # Phase 1 streamText (SSE) + Phase 2 streamObject
       prime-card.ts                # Priming Q + analogy (fast models)
-    auth/                          # Auth.js config + helpers + middleware
-    db/                            # Drizzle schema + Neon client
-    sr/sm2.ts                      # Pure SM-2 scheduler + tests
+    auth/                          # Auth.js config (GitHub + Google + Resend) + helpers
+    db/                            # Drizzle schema + Neon client (neon/pglite drivers)
+    sr/
+      sm2.ts                       # SM-2 scheduler (default)
+      fsrs.ts                      # FSRS v5 (opt-in via SCHEDULER=fsrs)
+      leech.ts                     # Leech detection + auto-suspend
+      session-stats.ts             # Per-session grade aggregation
+    calendar.ts                    # Calendar heatmap helpers
+    progress.ts                    # Streak + stats helpers
     utils.ts
     env.ts                         # Minimal .env loader for scripts
-  server/actions/decks.ts          # createDeck / gradeCard / prime / analogy
-middleware.ts                      # Protects /decks and /review
+  server/actions/
+    decks.ts                       # createDeck / gradeCard / prime / analogy / suspend
+    groups.ts                      # createGroup / renameGroup / moveDeckToGroup
+    progress.ts                    # getCardStats / getReviewActivity / getPerDeckStats
 drizzle.config.ts
 scripts/smoke-deck.ts              # End-to-end generation test
 ```
@@ -148,8 +172,9 @@ scripts/smoke-deck.ts              # End-to-end generation test
    `DATABASE_URL` / `DATABASE_URL_UNPOOLED`.
 3. Add the remaining env vars (`AUTH_*`, model API keys,
    `DEFAULT_MODEL_PROVIDER`).
-4. Set the GitHub OAuth callback URL to
-   `https://<your-domain>/api/auth/callback/github`.
+4. Set the OAuth callback URLs in each provider's console:
+   - GitHub: `https://<your-domain>/api/auth/callback/github`
+   - Google (if enabled): `https://<your-domain>/api/auth/callback/google`
 5. Run `pnpm db:migrate` locally against the Neon production branch,
    or wire it into the Vercel build step.
 
@@ -172,14 +197,9 @@ smoke test, and rollback.
 | **Custom per-deck scheduler config** | SM-2 defaults are fine | `Deck.schedulerConfig JSONB` |
 | **Image / audio attachments** | Text-first Feynman flow | `CardAsset` table + S3/R2 + upload flow |
 | **Anki `.apkg` import/export** | No data-lock-in concern yet | `genanki`-js on export, parser on import |
-| **FSRS scheduler** | SM-2 is 80/20 | Drop-in replacement of `src/lib/sr/*`; review history already captures what FSRS needs |
-| **Leeches / suspend** | Need review data first | Flag cards with ≥N consecutive Wrongs |
 | **Shared / public decks** | Social layer is its own product | `Deck.visibility` + share URL + fork |
 | **PWA + offline review** | Needs cached due queue | `next-pwa` + service worker + IndexedDB queue |
 | **Push reminders** | Needs PWA first | Web Push API + cron over due-queue |
-| **Streaming Phase 1 render** | Non-streamed works and keeps server action simple | Split into `streamText` + `streamObject` with suspense boundaries |
-| **Prompt + context caching per provider** | AI SDK abstracts; providers differ | Add `providerOptions` per-call (Anthropic `cache_control`, Gemini caches) |
-| **Magic-link / Google OAuth** | GitHub covers MVP | Add `Resend` provider + Google OAuth to `lib/auth/config.ts` |
 
 The schema is additive-only for each of these — no breaking migrations required.
 
