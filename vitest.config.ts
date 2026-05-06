@@ -27,6 +27,10 @@ export default defineConfig({
         "src/lib/ai/generate-deck.ts",
         "src/lib/ai/prime-card.ts",
         "src/lib/ai/distractor.ts",
+        // Pet event bus — thin wrappers around window event dispatch.
+        "src/lib/pet/events.ts",
+        // Persona table — pure data, no logic to verify.
+        "src/lib/pet/persona.ts",
       ],
       thresholds: {
         lines: 70,

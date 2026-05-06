@@ -2,15 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { and, eq, ne, lte, asc, desc, sql, inArray, count } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { decks, cards, suggestions, reviews } from "@/lib/db/schema";
+import { decks, cards, suggestions, reviews, pets } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/require-user";
 import { primeCard, analogyForCard } from "@/lib/ai/prime-card";
 import { generateDistractors, evaluateAnswer } from "@/lib/ai/distractor";
 import { schedule } from "@/lib/sr/sm2";
 import { scheduleFsrs } from "@/lib/sr/fsrs";
 import { isLeech, leechThreshold } from "@/lib/sr/leech";
+import {
+  awardPetXp,
+  markDeckFinishedIfComplete,
+  type AwardPetXpResult,
+} from "./pets";
+import { rebuildKnowledgeMemory } from "./pet-memory";
 
 function activeSchedule(
   ...args: Parameters<typeof schedule>
@@ -158,10 +165,32 @@ export async function gradeCardAction(input: {
       .where(eq(cards.id, card.id));
   }
 
+  // Pet hooks — never let these fail the grade.
+  let pet: AwardPetXpResult | null = null;
+  let deckFinished = false;
+  try {
+    pet = await awardPetXp(user.id, input.grade, card.deck.topic);
+    const finished = await markDeckFinishedIfComplete(card.deckId);
+    deckFinished = finished.justFinished;
+    if (deckFinished) {
+      const userPet = await db.query.pets.findFirst({
+        where: eq(pets.userId, user.id),
+      });
+      if (userPet) {
+        after(async () => {
+          await rebuildKnowledgeMemory(userPet.id);
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[pet] awardPetXp / markDeckFinished failed:", err);
+  }
+
   revalidatePath(`/decks/${card.deckId}`);
   revalidatePath(`/decks/${card.deckId}/review`);
   revalidatePath("/review");
   revalidatePath("/review/multi");
+  revalidatePath("/pet");
 
   return {
     intervalDays: next.intervalDays,
@@ -169,6 +198,8 @@ export async function gradeCardAction(input: {
     repetition: next.repetition,
     ease: next.ease,
     leechSuspended,
+    pet,
+    deckFinished,
   };
 }
 
