@@ -35,6 +35,7 @@ import {
   primeCardAction,
 } from "@/server/actions/decks";
 import { SessionSummary } from "./session-summary";
+import { dispatchPetReact } from "@/lib/pet/events";
 import type { Grade } from "@/lib/db/schema";
 
 export interface ReviewCard {
@@ -181,6 +182,24 @@ export function ReviewSession({
         });
         setLastInterval(result.intervalDays);
         setGradeLog((prev) => [...prev, { grade }]);
+
+        // Tell the pet what happened.
+        const xpDelta = result.pet?.delta ?? 0;
+        const reactKind: "correct" | "hard" | "wrong" =
+          grade === "right" ? "correct" : grade === "hard" ? "hard" : "wrong";
+        dispatchPetReact({ kind: reactKind, xpDelta });
+        if (result.pet?.leveledUp) {
+          dispatchPetReact({ kind: "levelup", level: result.pet.level });
+        }
+        if (result.pet?.evolved) {
+          dispatchPetReact({ kind: "evolve", stage: result.pet.stage });
+        }
+        if (result.deckFinished) {
+          dispatchPetReact({
+            kind: "speak",
+            message: "I'll remember this deck!",
+          });
+        }
 
         if (result.leechSuspended) {
           // Card hit the leech threshold — it's now suspended. Don't re-queue;

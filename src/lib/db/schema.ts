@@ -87,6 +87,27 @@ export const suggestionKindEnum = pgEnum("suggestion_kind", [
 export const cardStateEnum = pgEnum("card_state", ["new", "learning", "review"]);
 export const deckStatusEnum = pgEnum("deck_status", ["generating", "ready", "failed", "archived"]);
 
+export const petSpeciesEnum = pgEnum("pet_species", [
+  "pip",
+  "cyber_fox",
+  "leaf_axolotl",
+  "quill_owl",
+  "star_octopus",
+  "crystal_bunny",
+  "babel_cat",
+]);
+export const petMoodEnum = pgEnum("pet_mood", ["happy", "neutral", "tired"]);
+export const petEventKindEnum = pgEnum("pet_event_kind", [
+  "xp",
+  "levelup",
+  "evolve",
+  "species_shift",
+  "rename",
+  "knowledge_rebuild",
+  "interaction_compact",
+]);
+export const petChatRoleEnum = pgEnum("pet_chat_role", ["user", "assistant"]);
+
 export const deckGroups = pgTable("deck_group", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("userId")
@@ -124,6 +145,7 @@ export const decks = pgTable(
     } | null>(),
     modelProvider: text("modelProvider"),
     modelId: text("modelId"),
+    finishedAt: timestamp("finishedAt", { mode: "date" }),
     createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
   },
@@ -207,14 +229,111 @@ export const suggestions = pgTable(
 );
 
 // -----------------------------------------------------------------------------
+// Pet domain
+// -----------------------------------------------------------------------------
+
+export const pets = pgTable("pet", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("userId")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull().default("Pip"),
+  species: petSpeciesEnum("species").notNull().default("pip"),
+  xp: integer("xp").notNull().default(0),
+  level: integer("level").notNull().default(1),
+  stage: integer("stage").notNull().default(1),
+  mood: petMoodEnum("mood").notNull().default("neutral"),
+  topicTally: jsonb("topicTally")
+    .$type<Record<string, number>>()
+    .notNull()
+    .default({}),
+  knowledgeMemory: text("knowledgeMemory").notNull().default(""),
+  interactionMemory: text("interactionMemory").notNull().default(""),
+  knowledgeMemoryUpdatedAt: timestamp("knowledgeMemoryUpdatedAt", {
+    mode: "date",
+  }),
+  interactionMemoryUpdatedAt: timestamp("interactionMemoryUpdatedAt", {
+    mode: "date",
+  }),
+  position: jsonb("position")
+    .$type<{
+      anchor: "br" | "bl" | "tr" | "tl";
+      offsetX: number;
+      offsetY: number;
+    }>()
+    .notNull()
+    .default({ anchor: "br", offsetX: 24, offsetY: 24 }),
+  lastInteractionAt: timestamp("lastInteractionAt", { mode: "date" })
+    .notNull()
+    .defaultNow(),
+  createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { mode: "date" }).notNull().defaultNow(),
+});
+
+export const petEvents = pgTable(
+  "pet_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    petId: uuid("petId")
+      .notNull()
+      .references(() => pets.id, { onDelete: "cascade" }),
+    kind: petEventKindEnum("kind").notNull(),
+    payload: jsonb("payload")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (e) => ({
+    byPet: index("pet_event_pet_idx").on(e.petId),
+  }),
+);
+
+export const petChatMessages = pgTable(
+  "pet_chat_message",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    petId: uuid("petId")
+      .notNull()
+      .references(() => pets.id, { onDelete: "cascade" }),
+    role: petChatRoleEnum("role").notNull(),
+    content: text("content").notNull(),
+    compacted: boolean("compacted").notNull().default(false),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (m) => ({
+    byPet: index("pet_chat_pet_idx").on(m.petId),
+  }),
+);
+
+// -----------------------------------------------------------------------------
 // Relations
 // -----------------------------------------------------------------------------
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   decks: many(decks),
   reviews: many(reviews),
   groups: many(deckGroups),
+  pet: one(pets, { fields: [users.id], references: [pets.userId] }),
 }));
+
+export const petsRelations = relations(pets, ({ one, many }) => ({
+  user: one(users, { fields: [pets.userId], references: [users.id] }),
+  events: many(petEvents),
+  chatMessages: many(petChatMessages),
+}));
+
+export const petEventsRelations = relations(petEvents, ({ one }) => ({
+  pet: one(pets, { fields: [petEvents.petId], references: [pets.id] }),
+}));
+
+export const petChatMessagesRelations = relations(
+  petChatMessages,
+  ({ one }) => ({
+    pet: one(pets, { fields: [petChatMessages.petId], references: [pets.id] }),
+  }),
+);
 
 export const deckGroupsRelations = relations(deckGroups, ({ one, many }) => ({
   user: one(users, { fields: [deckGroups.userId], references: [users.id] }),
@@ -247,3 +366,12 @@ export type Card = typeof cards.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
 export type Suggestion = typeof suggestions.$inferSelect;
 export type Grade = (typeof gradeEnum.enumValues)[number];
+export type Pet = typeof pets.$inferSelect;
+export type InsertPet = typeof pets.$inferInsert;
+export type PetEvent = typeof petEvents.$inferSelect;
+export type PetChatMessage = typeof petChatMessages.$inferSelect;
+export type PetSpecies = (typeof petSpeciesEnum.enumValues)[number];
+export type PetMood = (typeof petMoodEnum.enumValues)[number];
+export type PetEventKind = (typeof petEventKindEnum.enumValues)[number];
+export type PetChatRole = (typeof petChatRoleEnum.enumValues)[number];
+export type PetPosition = NonNullable<Pet["position"]>;

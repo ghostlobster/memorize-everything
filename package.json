@@ -22,9 +22,9 @@
     "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.72",
-    "@ai-sdk/google": "^3.0.65",
-    "@ai-sdk/openai": "^3.0.54",
+    "@ai-sdk/anthropic": "^3.0.74",
+    "@ai-sdk/google": "^3.0.67",
+    "@ai-sdk/openai": "^3.0.59",
     "@auth/drizzle-adapter": "^1.7.2",
     "@electric-sql/pglite": "^0.4.5",
     "@neondatabase/serverless": "^1.1.0",
@@ -34,7 +34,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "ai": "^6.0.170",
+    "ai": "^6.0.175",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
