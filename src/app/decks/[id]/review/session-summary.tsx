@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
 import { CheckCircle2, Flame, Timer, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { computeBestStreak, formatDuration } from "@/lib/sr/session-stats";
+import { dispatchPetReact } from "@/lib/pet/events";
 import type { Grade } from "@/lib/db/schema";
 
 interface SessionSummaryProps {
@@ -34,6 +38,10 @@ export function SessionSummary({
     total > 0 ? Math.round(((rightCount + hardCount) / total) * 100) : 0;
   const bestStreak = computeBestStreak(gradeLog.map((g) => g.grade));
   const durationLabel = formatDuration(durationMs);
+
+  useEffect(() => {
+    dispatchPetReact({ kind: "celebrate" });
+  }, []);
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">

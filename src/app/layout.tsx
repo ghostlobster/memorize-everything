@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { SiteHeader } from "@/components/layout/site-header";
+import { PetMount } from "@/components/pet/pet-mount";
 
 export const metadata: Metadata = {
   title: "Memorize Everything",
@@ -23,6 +24,7 @@ export default function RootLayout({
         <main className="mx-auto w-full max-w-5xl px-4 py-8 md:py-12">
           {children}
         </main>
+        <PetMount />
         <Analytics />
         <SpeedInsights />
       </body>

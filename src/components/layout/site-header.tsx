@@ -3,9 +3,14 @@ import { BrainCircuit } from "lucide-react";
 import { auth, signIn, signOut } from "@/lib/auth/config";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { PetStats } from "@/components/pet/pet-stats";
+import { getOrCreatePet } from "@/server/actions/pets";
 
 export async function SiteHeader() {
   const session = await auth();
+  const pet = session?.user?.id
+    ? await getOrCreatePet(session.user.id).catch(() => null)
+    : null;
 
   const authForm = session?.user ? (
     <form
@@ -65,6 +70,7 @@ export async function SiteHeader() {
           >
             New deck
           </Link>
+          {pet && <PetStats pet={pet} compact />}
           {session?.user ? (
             <form
               action={async () => {
